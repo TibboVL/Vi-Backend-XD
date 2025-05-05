@@ -6,7 +6,7 @@ import {
 
 const router = Router();
 
-router.get("/", getUsers);
+router.post("/", getUsers);
 router.get("/testUitAPI", getUitEvents);
 
 export default router;

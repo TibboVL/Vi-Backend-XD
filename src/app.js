@@ -3,6 +3,7 @@ import cors from "cors";
 import routes from "./routes/api/v1/index.js"; // grab all registered routes
 import { errorHandler } from "./middleware/errorHandler.js";
 import { auth } from "express-oauth2-jwt-bearer";
+import { testConnection } from "./config/db.js";
 
 const app = express();
 
@@ -24,5 +25,7 @@ app.get("/authorized", function (req, res) {
 app.use("/api/v1", routes); // use routes
 
 app.use(errorHandler);
+
+console.log("DB-version:", await testConnection());
 
 export default app;

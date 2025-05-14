@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: ${DB_IDENTIFIER}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - vi_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # Optional: expose if you want to connect locally (e.g. pgAdmin, app)
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  vi_pgdata:

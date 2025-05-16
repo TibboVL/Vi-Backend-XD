@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node ./src/server",
-    "dev": "node --watch ./src/server"
+    "dev": "node --watch ./src/server",
+    "migrate:up": "knex migrate:latest && knex seed:run ",
+    "migrate:down": "knex migrate:rollback --all "
   },
   "keywords": [],
   "author": "",
@@ -16,6 +18,7 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "express-oauth2-jwt-bearer": "^1.6.1",
+    "knex": "^3.1.0",
     "pg-promise": "^11.13.0"
   },
   "devDependencies": {

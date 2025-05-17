@@ -162,7 +162,7 @@ export async function seed(knex) {
   // Insert while resolving pillarId
   await knex("activity_category").insert(
     categories.map((cat) => ({
-      activityPillar: pillarMap[cat.pillar],
+      activityPillarId: pillarMap[cat.pillar],
       name: cat.name,
       description: cat.description,
     }))

@@ -10,11 +10,6 @@ const UitSearchAPIURI = "https://search-test.uitdatabank.be";
 //  * @property {number} [page]
 //  * @property {number} [pageSize]
  */
-
-/**
- * @param {Filters} filters
- * @returns {Promise<any[]>}
- */
 export const getUitEventDecodedList = async (filters) => {
   const { postalCode } = filters;
   console.log(filters);

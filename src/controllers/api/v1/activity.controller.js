@@ -26,7 +26,8 @@ export const getActivities = asyncHandler(async (req, res) => {
       "a.estimatedCost",
       "a.isGroupActivity",
       "c.name as category",
-      "p.name as pillar"
+      "p.name as pillar",
+      "a.debugUITId"
     );
 
   // group categories in memory
@@ -43,6 +44,7 @@ export const getActivities = asyncHandler(async (req, res) => {
         estimatedCost: row.estimatedCost,
         isGroupActivity: row.isGroupActivity,
         categories: [],
+        debugUITId: row.debugUITId,
       };
     }
 

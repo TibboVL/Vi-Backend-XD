@@ -25,6 +25,8 @@ export async function up(knex) {
     table.decimal("locationLatitude", 10, 7).nullable();
     table.decimal("locationLongitude", 10, 7).nullable();
 
+    table.string("debugUITId").nullable();
+
     table.timestamps();
   });
 }

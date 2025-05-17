@@ -25,6 +25,7 @@
     "@types/cors": "^2.8.17",
     "@types/debug": "^4.1.12",
     "@types/express": "^5.0.1",
+    "@types/knex": "^0.15.2",
     "@types/node": "^22.15.3",
     "typescript": "^5.8.3"
   }

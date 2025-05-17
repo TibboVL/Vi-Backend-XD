@@ -7,10 +7,10 @@ export async function up(knex) {
     table.increments("activityCategoryId");
 
     // Define the foreign key column (integer, unsigned)
-    table.integer("activityPillar").unsigned().notNullable();
+    table.integer("activityPillarId").unsigned().notNullable();
     // Then create the foreign key constraint
     table
-      .foreign("activityPillar")
+      .foreign("activityPillarId")
       .references("pillarId")
       .inTable("activity_pillar")
       .onDelete("CASCADE"); // When an activity pillar is deleted -> delete all activity categories linked to it

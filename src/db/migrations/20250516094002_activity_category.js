@@ -15,9 +15,12 @@ export async function up(knex) {
       .inTable("activity_pillar")
       .onDelete("CASCADE"); // When an activity pillar is deleted -> delete all activity categories linked to it
 
-    table.string("name").notNullable().unique();
+    table.string("name").notNullable() /* .unique() */;
     table.string("description");
     table.timestamps();
+
+    // Composite unique constraint
+    table.unique(["name", "activityPillarId"]);
   });
 }
 

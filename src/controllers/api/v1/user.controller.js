@@ -32,7 +32,7 @@ export const getUitEvents = asyncHandler(async (req, res) => {
   console.log(req.query);
   const events = await getUitEventDecodedList(req.query);
 
-  console.log(events);
+  //console.log(events);
 
   sendSuccess(res, {
     statusCode: 200,

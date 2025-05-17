@@ -5,7 +5,7 @@ import { sendError, sendSuccess } from "../../../utils/responses.js";
 
 // temporary
 export const getActivities = asyncHandler(async (req, res) => {
-  const activities = await db("activity as a")
+  const rawActivities = await db("activity as a")
     .leftJoin(
       "activity_activity_category as ac",
       "a.activityId",
@@ -28,6 +28,33 @@ export const getActivities = asyncHandler(async (req, res) => {
       "c.name as category",
       "p.name as pillar"
     );
+
+  // group categories in memory
+  const grouped = {};
+
+  for (const row of rawActivities) {
+    if (!grouped[row.activityId]) {
+      grouped[row.activityId] = {
+        activityId: row.activityId,
+        name: row.name,
+        energyRequired: row.energyRequired,
+        estimatedDurationMinutes: row.estimatedDurationMinutes,
+        currency: row.currency,
+        estimatedCost: row.estimatedCost,
+        isGroupActivity: row.isGroupActivity,
+        categories: [],
+      };
+    }
+
+    if (row.category) {
+      grouped[row.activityId].categories.push({
+        name: row.category,
+        pillar: row.pillar,
+      });
+    }
+  }
+
+  const activities = Object.values(grouped);
 
   setTimeout(() => {
     sendSuccess(res, {

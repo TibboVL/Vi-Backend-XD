@@ -167,4 +167,9 @@ export async function seed(knex) {
       description: cat.description,
     }))
   );
+
+  /*   // !! ensure POSTGRES doesnt attempt to use our existing ids in auto assignment !!
+  await knex.raw(
+    `SELECT setval(pg_get_serial_sequence('activity_category', 'activityCategoryId'), (SELECT MAX("activityCategoryId") FROM mood))`
+  ); */
 }

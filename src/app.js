@@ -3,6 +3,7 @@ import cors from "cors";
 import routes from "./routes/api/v1/index.js"; // grab all registered routes
 import { errorHandler } from "./middleware/errorHandler.js";
 import { auth } from "express-oauth2-jwt-bearer";
+import { requireUser } from "./middleware/requireUser.js";
 
 const app = express();
 
@@ -15,11 +16,8 @@ const jwtCheck = auth({
   tokenSigningAlg: "RS256",
 });
 // enforce on all endpoints
-app.use(jwtCheck);
-
-app.get("/authorized", function (req, res) {
-  res.send("Secured Resource");
-});
+app.use(jwtCheck); // Auth0 JWT validation on all endpoints
+app.use(requireUser); // Require the user exists in our local DB for all following endpoints
 
 app.use("/api/v1", routes); // use routes
 

@@ -4,12 +4,15 @@
  */
 export async function up(knex) {
   await knex.schema.createTable("user", (table) => {
-    table.increments("userId");
-    table.string("email").notNullable().unique();
-    table.string("firstname").notNullable();
-    table.string("lastname").notNullable();
-    table.timestamps();
+    table.increments("userId").unsigned().notNullable(); // internal PK
+    table.string("auth0Id").notNullable().unique(); // Auth0's unique user ID from the JWT "sub"
 
+    table.string("email").notNullable().unique();
+    table.string("username").notNullable();
+    table.string("firstname").nullable();
+    table.string("lastname").nullable();
+
+    table.timestamps();
     table.dateTime("lastLogin");
 
     /*     table

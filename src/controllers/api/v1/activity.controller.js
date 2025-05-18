@@ -27,7 +27,9 @@ export const getActivities = asyncHandler(async (req, res) => {
       "a.isGroupActivity",
       "c.name as category",
       "p.name as pillar",
-      "a.debugUITId"
+      "a.debugUITId",
+      "a.locationLatitude",
+      "a.locationLongitude"
     );
 
   // group categories in memory
@@ -45,6 +47,8 @@ export const getActivities = asyncHandler(async (req, res) => {
         isGroupActivity: row.isGroupActivity,
         categories: [],
         debugUITId: row.debugUITId,
+        lat: row.locationLatitude,
+        lon: row.locationLongitude,
       };
     }
 

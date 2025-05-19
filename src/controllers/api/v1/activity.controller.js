@@ -70,21 +70,31 @@ export const getActivities = asyncHandler(async (req, res) => {
     });
   }, 1000);
 });
-/* 
+
 export const getActivityDetails = asyncHandler(async (req, res) => {
-  const { activityId } = req.body;
-  console.log(activityId);
+  setTimeout(async () => {
+    if (req?.params?.activityId) {
+      const activity = await db("activity")
+        .where("activityId", req.params.activityId)
+        .first();
 
-  if (activityId) {
-    const activity = await knex("activity").where("activityId");
-  }
-
-  console.log(events);
-
-  sendSuccess(res, {
-    statusCode: 200,
-    message: "UitVlaanderen Events Retrieved",
-    data: events,
-  });
+      if (activity) {
+        sendSuccess(res, {
+          statusCode: 200,
+          message: "UitVlaanderen Events Retrieved",
+          data: activity,
+        });
+        return;
+      }
+      sendError(res, {
+        statusCode: 404,
+        message: `No event exists with id: ${req.params.activityId}`,
+      });
+      return;
+    }
+    sendError(res, {
+      statusCode: 404,
+      message: `No activityId provided`,
+    });
+  }, 1000);
 });
- */

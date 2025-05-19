@@ -21,11 +21,27 @@ export async function up(knex) {
     table.timestamp("startDate").nullable();
     table.timestamp("endDate").nullable();
 
-    table.string("locationCity").nullable();
+    table.string("locationName").nullable();
+    table.string("locationDescription", 1000).nullable();
+
     table.decimal("locationLatitude", 10, 7).nullable();
     table.decimal("locationLongitude", 10, 7).nullable();
+    table.string("locationCity").nullable();
+    table.string("locationStreetAddress").nullable();
+    table.string("locationPostcode").nullable();
+    table.string("locationCountry").nullable();
 
     table.string("debugUITId").nullable();
+
+    table.jsonb("contactEmails").nullable();
+    table.jsonb("contactPhones").nullable();
+    table.jsonb("contactURLs").nullable();
+
+    table.integer("minAge").nullable();
+    table.integer("maxAge").nullable();
+
+    table.jsonb("openingHoursStructured").nullable();
+    table.jsonb("tags").nullable(); // store tags, just so we dont have to re-query uitDB and can do local updates of our own categories
 
     table.timestamps();
   });

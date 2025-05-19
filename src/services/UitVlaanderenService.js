@@ -2,6 +2,8 @@ import dotenv from "dotenv";
 import "../types/types.js"; // Import type definitions
 import db from "../db/index.js";
 import { DateTime } from "luxon";
+import { mapActivityToPillarCategories } from "./mapToCategoryHelper.js";
+import { stripAll } from "../utils/textUtils.js";
 
 // const UitSearchAPIURI = "https://search-test.uitdatabank.be";
 const UitSearchAPIURI = "https://search-test.uitdatabank.be";
@@ -40,7 +42,8 @@ export const getUitEventDecodedList = async (filters) => {
   const escapedIn14Days = in14Days.replace(/:/g, "\\:");
   const dateRangeQuery = `availableRange:[${escapedNow} TO ${escapedIn14Days}]`;
   const q = encodeURIComponent(
-    `address.nl.addressLocality:Antwerpen AND ${dateRangeQuery}`
+    // `address.nl.addressLocality:Antwerpen AND ${dateRangeQuery}`
+    `${dateRangeQuery}`
   );
 
   console.log(dateRangeQuery);
@@ -54,7 +57,8 @@ export const getUitEventDecodedList = async (filters) => {
         "&bookingAvailability=Available" +
         "&languages[]=nl" +
         "&status=Available" +
-        "&limit=500" +
+        "&limit=100" +
+        "&regions=nis-10000" +
         //"&q=address.nl.addressLocality:Antwerpen" + // can filter on province or postalcode
         (postalCode ? "&postalCode=" + postalCode : ""),
       {
@@ -66,9 +70,31 @@ export const getUitEventDecodedList = async (filters) => {
     );
     // return;
     const encodedEvents = await events.json();
-    console.log(encodedEvents);
+
+    console.log(`Found: ${encodedEvents.totalItems} items`);
+
     //console.log(encodedEvents);
     const decodedEvents = await handleEventListDecode(encodedEvents.member);
+
+    /* console.log(
+      decodedEvents.map((event) => {
+        return {
+          start: event.startDate,
+          end: event.endDate,
+          availableFrom: event.availableFrom,
+          availableTo: event.availableTo,
+          subEvs: JSON.stringify(
+            event.subEvent?.map((e) => ({
+              subEventStart: event.subEvent[0].startDate,
+              subEventEnd: event.subEvent[0].endDate,
+            }))
+          ),
+          oepningHours: JSON.stringify(event.location.openingHours),
+          status: event.status.type,
+          calendarType: event.calendarType,
+        };
+      })
+    ); */
     //console.log(decodedEvents);
 
     await handleInsertToDB(decodedEvents);
@@ -92,6 +118,11 @@ const handleInsertToDB = async (decodedEvents) => {
 
       if (!Array.isArray(categories) || categories.length === 0) {
         console.warn(`Activity: "${transformedEvent.name}" has no categories`);
+        console.log(
+          JSON.parse(transformedEvent.tags).filter((tag) =>
+            ["eventtype", "theme"].includes(tag.domain)
+          )
+        );
         continue;
       }
 
@@ -110,15 +141,15 @@ const handleInsertToDB = async (decodedEvents) => {
           .where("activityPillarId", pillar?.pillarId) // !! only check on name ?! may need to change in the future
           .first()
           .then((res) => {
-            console.log(res);
+            //console.log(res);
             return res?.activityCategoryId;
           });
 
-        console.log(
+        /* console.log(
           `Does it exist? category id: ${categoryId} - pillar: ${
             pillar?.pillarId
           } - cat: ${JSON.stringify(cat)} - cats ${JSON.stringify(categories)}`
-        );
+        ); */
         // Insert if not exists
         if (categoryId == null) {
           const [newCategory] = await db("activity_category")
@@ -164,10 +195,14 @@ const handleInsertToDB = async (decodedEvents) => {
         activityId: activityId,
         activityCategoryId: categoryId,
       }));
-      console.log(categoryIds);
+      //console.log(categoryIds);
       await db("activity_activity_category").insert(links);
     } catch (error) {
-      console.warn("Failed to insert activity for:", JSON.stringify(event));
+      console.warn(
+        "Failed to insert activity for:",
+        JSON.stringify(event),
+        error
+      );
     }
   }
 };
@@ -192,10 +227,15 @@ const handleEventListDecode = async (eventList) => {
   return decodedEventsList;
 };
 export function transformUitEvent(event) {
+  const minAgeRegex = new RegExp("^(\\d+)");
+  const maxAgeRegex = new RegExp("(\\d+)$");
+
+  const minAge = minAgeRegex.exec(event.typicalAgeRange);
+  const maxAge = maxAgeRegex.exec(event.typicalAgeRange);
   return {
     // Core fields
-    name: event.name.nl.trim(),
-    description: event?.description?.nl?.substring(0, 1000),
+    name: stripAll(event.name.nl.trim()),
+    description: stripAll(event?.description?.nl?.substring(0, 1000)),
     source: "UITVlaanderen",
 
     // Categories (event type + theme terms)
@@ -208,13 +248,18 @@ export function transformUitEvent(event) {
     energyRequired: "low", // Temporary value
 
     // Location data
+    locationName: event.location?.name?.nl,
+    locationCountry: event.location?.address?.nl?.addressCountry,
     locationCity: event.location?.address?.nl?.addressLocality,
+    locationPostcode: event.location?.address?.nl?.postalCode,
+    locationStreetAddress: event.location?.address?.nl?.streetAddress,
     locationLatitude: event.location?.geo?.latitude,
     locationLongitude: event.location?.geo?.longitude,
 
     // dates
     startDate: event.startDate,
     endDate: event.endDate,
+    openingHoursStructured: JSON.stringify(parseOpeningHours(event)),
 
     // Price info
     currency: getCurrency(event.priceInfo),
@@ -223,9 +268,52 @@ export function transformUitEvent(event) {
     // Group activity detection
     isGroupActivity: detectGroupActivity(event.terms),
 
+    // Age range
+    minAge: minAge ? minAge[0] : null,
+    maxAge: maxAge ? maxAge[0] : null,
+
+    // Contact
+    contactEmails: JSON.stringify(event.contactPoint?.email),
+    contactPhones: JSON.stringify(event.contactPoint?.phone),
+    contactURLs: JSON.stringify(event.contactPoint?.url),
+
     // debug
     debugUITId: event["@id"],
+    tags: JSON.stringify(event.terms),
   };
+}
+
+function parseOpeningHours(event) {
+  if (event.location.openingHours && event.location.openingHours.length > 0) {
+    const openingHours = event.location.openingHours;
+    const structuredHours = [];
+    openingHours.map((hoursBlock) => {
+      hoursBlock.dayOfWeek?.map((day) => {
+        const existingEntryForDay = structuredHours.find(
+          (weekdayHours) => weekdayHours.weekday == day
+        );
+        if (existingEntryForDay) {
+          existingEntryForDay.intervals.push({
+            opens: hoursBlock.opens,
+            closes: hoursBlock.closes,
+          });
+        } else {
+          structuredHours.push({
+            weekday: day,
+            intervals: [
+              {
+                opens: hoursBlock.opens,
+                closes: hoursBlock.closes,
+              },
+            ],
+          });
+        }
+      });
+    });
+
+    return structuredHours;
+  }
+  return [];
 }
 
 // Duration calculation (handles single events and subEvents)
@@ -262,370 +350,10 @@ function getPrice(priceInfo) {
 
 // Group activity detection
 function detectGroupActivity(terms) {
-  const groupIndicators = ["workshop", "class", "course", "group"];
+  const groupIndicators = ["workshop", "les", "opleiding", "groep"];
   return (terms || []).some((term) =>
     groupIndicators.some((indicator) =>
       term.label.toLowerCase().includes(indicator)
     )
   );
 }
-
-function mapActivityToPillarCategories(uitActivity) {
-  const termLabels = uitActivity.terms
-    .filter((t) => ["eventtype", "theme"].includes(t.domain))
-    .map((t) => t.label.toLowerCase().trim());
-  const text = `${uitActivity.title} ${uitActivity.description}`
-    .toLowerCase()
-    .trim()
-    .split(" ");
-
-  const matches = new Set();
-
-  for (const mapping of CATEGORY_MAPPINGS) {
-    for (const keyword of mapping.labels) {
-      // Match in term labels or full text
-      if (
-        termLabels.some((label) => label.includes(keyword)) ||
-        text.some((word) => word.includes(keyword))
-      ) {
-        matches.add(
-          JSON.stringify({ pillar: mapping.pillar, category: mapping.category })
-        );
-        break; // Avoid duplicate from same mapping
-      }
-    }
-  }
-
-  return Array.from(matches).map((m) => JSON.parse(m));
-}
-
-const CATEGORY_MAPPINGS = [
-  // ------------------------
-  // 🧘‍♂️ Mindfulness
-  // ------------------------
-
-  {
-    labels: [
-      "meditatie",
-      "mindfulness",
-      "zen",
-      "stiltewandeling",
-      "stilte",
-      "innerlijke rust",
-      "ontspanning",
-      "ademhaling",
-      "stressreductie",
-      "healing",
-      "inner peace",
-      "contemplatie",
-    ],
-    pillar: "Mindfulness",
-    category: "Meditation",
-  },
-  {
-    labels: [
-      "dankbaarheid",
-      "zingeving",
-      "spiritualiteit",
-      "zelfzorg",
-      "persoonlijke groei",
-      "persoonlijke ontwikkeling",
-      "innerlijke groei",
-      "bewustwording",
-      "levensvragen",
-    ],
-    pillar: "Mindfulness",
-    category: "Meaning & Self-awareness",
-  },
-  {
-    labels: [
-      "religie",
-      "kerk",
-      "viering",
-      "gebed",
-      "geloof",
-      "bijbel",
-      "spiritueel",
-      "trouw",
-      "doop",
-      "mis",
-      "boeddhisme",
-      "moskee",
-      "klooster",
-      "interlevensbeschouwelijk",
-    ],
-    pillar: "Mindfulness",
-    category: "Religious/Spiritual Gathering",
-  },
-  {
-    labels: [
-      "gezondheid",
-      "wellness",
-      "ontspanning",
-      "massages",
-      "spa",
-      "therapie",
-      "therapeutisch",
-      "natuurgeneeskunde",
-      "holistisch",
-      "balans",
-      "mind-body",
-      "alternatieve geneeskunde",
-    ],
-    pillar: "Mindfulness",
-    category: "Wellness",
-  },
-
-  // ------------------------
-  // 🏃 Physical
-  // ------------------------
-
-  {
-    labels: [
-      "sport",
-      "sportdag",
-      "workout",
-      "training",
-      "fit",
-      "fitheid",
-      "fitness",
-      "hardlopen",
-      "lopen",
-      "wandelen",
-      "trail",
-      "tocht",
-      "running",
-      "spinning",
-      "bootcamp",
-      "lopen",
-      "bodyweight",
-      "krachttraining",
-      "cardio",
-    ],
-    pillar: "Physical",
-    category: "Exercise",
-  },
-  {
-    labels: [
-      "yoga",
-      "qi gong",
-      "tai chi",
-      "stretching",
-      "pilates",
-      "body & mind",
-      "slow movement",
-      "lichte beweging",
-      "balansoefeningen",
-      "rustige sport",
-      "ademhalingsoefeningen",
-    ],
-    pillar: "Physical",
-    category: "Low Impact",
-  },
-  {
-    labels: [
-      "dans",
-      "zumba",
-      "salsa",
-      "hiphop",
-      "klassiek ballet",
-      "dansles",
-      "modern",
-      "movement",
-      "improvisatiedans",
-      "choreografie",
-    ],
-    pillar: "Physical",
-    category: "Dance",
-  },
-  {
-    labels: [
-      "natuurwandeling",
-      "bosbad",
-      "natuurbeleving",
-      "outdoor",
-      "buitensport",
-      "klimmen",
-      "survival",
-      "kajakken",
-      "fietstocht",
-      "mountainbike",
-      "buitenactiviteit",
-      "avontuur",
-    ],
-    pillar: "Physical",
-    category: "Nature & Adventure",
-  },
-
-  // ------------------------
-  // 🎨 Skills
-  // ------------------------
-
-  {
-    labels: [
-      "cursus",
-      "opleiding",
-      "workshop",
-      "training",
-      "vaardigheden",
-      "vaardigheid",
-      "les",
-      "bijscholing",
-      "leertraject",
-      "atelier",
-      "vaardigheidstraining",
-      "illustratie",
-      "tekenen",
-      "schilderen",
-      "fotografie",
-      "creatief",
-      "beeldende kunst",
-      "handwerk",
-      "ambacht",
-      "kunst",
-      "grafisch",
-      "design",
-      "keramiek",
-      "boetseren",
-      "drama",
-      "muziekles",
-      "gitaarles",
-      "zingen",
-      "koor",
-      "instrument",
-      "muziekschool",
-      "muziekatelier",
-    ],
-    pillar: "Skills",
-    category: "Workshop",
-  },
-  {
-    labels: [
-      "lezing",
-      "congres",
-      "seminarie",
-      "voordracht",
-      "college",
-      "talk",
-      "presentatie",
-      "infosessie",
-    ],
-    pillar: "Skills",
-    category: "Lecture",
-  },
-  {
-    labels: [
-      "tarot",
-      "astrologie",
-      "pendelen",
-      "energie",
-      "reiki",
-      "orakel",
-      "reading",
-      "spiritueel",
-      "chakra",
-      "ziel",
-      "spirituele ontwikkeling",
-    ],
-    pillar: "Skills",
-    category: "Spiritual Course",
-  },
-  {
-    labels: [
-      "taal",
-      "talen",
-      "frans",
-      "engels",
-      "duits",
-      "nt2",
-      "taalcursus",
-      "taalinitiatie",
-    ],
-    pillar: "Skills",
-    category: "Language Course",
-  },
-  {
-    labels: [
-      "digitaal",
-      "technologie",
-      "computer",
-      "it",
-      "ai",
-      "robotica",
-      "webdesign",
-      "digitale vaardigheden",
-    ],
-    pillar: "Skills",
-    category: "Digital Skills",
-  },
-
-  // ------------------------
-  // 🧑‍🤝‍🧑 Social
-  // ------------------------
-
-  {
-    labels: [
-      "bijeenkomst",
-      "samenkomst",
-      "netwerken",
-      "groepsactiviteit",
-      "ontmoeting",
-      "groepsbijeenkomst",
-      "inloop",
-      "thema-avond",
-      "koffiemoment",
-      "sociale activiteit",
-    ],
-    pillar: "Social",
-    category: "Group Activity",
-  },
-  {
-    labels: [
-      "kinderen",
-      "jongeren",
-      "familie",
-      "ouder-kind",
-      "gezinsactiviteit",
-      "peuters",
-      "babies",
-      "kinderworkshop",
-      "jeugd",
-      "tieners",
-      "gezinsvriendelijk",
-      "vakantieactiviteit",
-    ],
-    pillar: "Social",
-    category: "Family/Youth",
-  },
-  {
-    labels: [
-      "kamp",
-      "vakantie",
-      "kampweek",
-      "zomerkamp",
-      "speelplein",
-      "jeugdkamp",
-      "midweek",
-      "retreat",
-    ],
-    pillar: "Social",
-    category: "Camp or Retreat",
-  },
-  {
-    labels: [
-      "buurt",
-      "wijk",
-      "lokaal",
-      "sociaal",
-      "gemeente",
-      "dorpsfeest",
-      "buurtactiviteit",
-      "burgerinitiatief",
-      "participatie",
-      "samenleven",
-      "wijkwerking",
-    ],
-    pillar: "Social",
-    category: "Community",
-  },
-];

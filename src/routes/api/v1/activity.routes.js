@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { getActivities } from "../../../controllers/api/v1/activity.controller.js";
+import {
+  getActivities,
+  getActivityDetails,
+} from "../../../controllers/api/v1/activity.controller.js";
 
 const activityRoutes = Router();
 
 activityRoutes.get("/", getActivities);
-// router.get("/:id", getActivityDetails);
+activityRoutes.get("/:activityId", getActivityDetails);
 
 export default activityRoutes;

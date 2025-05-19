@@ -6,11 +6,11 @@ export async function seed(knex) {
   await knex("activity_category").del();
 
   // Dynamically fetch pillar IDs
-  const pillars = await knex("activity_pillar").select("pillarId", "name");
+  /*   const pillars = await knex("activity_pillar").select("pillarId", "name");
   const pillarMap = Object.fromEntries(
     pillars.map((p) => [p.name, p.pillarId])
-  );
-
+  ); */
+  /* 
   const categories = [
     // Mindfulness
     {
@@ -155,19 +155,19 @@ export async function seed(knex) {
       description: "Practice or learn music.",
     },
   ];
-
+ */
   /*   console.log(pillarMap);
   console.log(pillarMap["Skills"]); */
 
   // Insert while resolving pillarId
-  await knex("activity_category").insert(
+  /*   await knex("activity_category").insert(
     categories.map((cat) => ({
       activityPillarId: pillarMap[cat.pillar],
       name: cat.name,
       description: cat.description,
     }))
   );
-
+ */
   /*   // !! ensure POSTGRES doesnt attempt to use our existing ids in auto assignment !!
   await knex.raw(
     `SELECT setval(pg_get_serial_sequence('activity_category', 'activityCategoryId'), (SELECT MAX("activityCategoryId") FROM mood))`

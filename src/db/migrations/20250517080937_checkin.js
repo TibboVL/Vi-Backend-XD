@@ -24,7 +24,11 @@ export async function up(knex) {
     table.integer("userActivityId").unsigned().nullable();
     /*.references("userActivityId")
       .inTable("user_activity_list"); */
-    table.timestamp("timestamp");
+    table
+      .dateTime("created_at")
+      .notNullable()
+      .defaultTo(knex.raw("CURRENT_TIMESTAMP"));
+    table.dateTime("updated_at").nullable();
     /*     table
       .integer("typeId")
       .unsigned()

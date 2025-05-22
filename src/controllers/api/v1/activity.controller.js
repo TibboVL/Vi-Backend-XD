@@ -1,6 +1,11 @@
 import db from "../../../db/index.js";
+import { getAISuggestedActivities } from "../../../services/AISuggestionProcessingService.js";
 import { getUitEventDecodedList } from "../../../services/UitVlaanderenService.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
+import {
+  getCoordinateBoundingBox,
+  getDistanceFromLatLonInKm,
+} from "../../../utils/distanceHelper.js";
 import { sendError, sendSuccess } from "../../../utils/responses.js";
 
 /**
@@ -18,6 +23,8 @@ import { sendError, sendSuccess } from "../../../utils/responses.js";
 // temporary
 export const getActivities = asyncHandler(async (req, res) => {
   const energyLevelParam = req.query.energyLevel;
+  const userLon = parseFloat(req.query.lon) ?? undefined;
+  const userLat = parseFloat(req.query.lat) ?? undefined;
 
   const energyLevel =
     typeof energyLevelParam === "string"
@@ -49,10 +56,17 @@ export const getActivities = asyncHandler(async (req, res) => {
     minAge: req.query.minAge ? parseInt(req.query.minAge, 10) : undefined,
     maxPrice: req.query.maxPrice ? parseInt(req.query.maxPrice, 10) : undefined,
     duration: undefined,
-    distance: undefined,
+    distance: req.query.distance ?? 50,
     // @ts-ignore
     categoryId: categoryId,
   };
+
+  if (!userLat || !userLon || !filters.distance) {
+    return sendError(res, {
+      statusCode: 400,
+      message: "user Lon, Lat and distance are required fields!",
+    });
+  }
 
   let query = db("activity as a")
     .leftJoin(
@@ -83,20 +97,36 @@ export const getActivities = asyncHandler(async (req, res) => {
     query = query.whereIn("ac.activityCategoryId", filters.categoryId);
   }
 
-  const rawActivities = await query.select(
-    "a.activityId",
-    "a.name",
-    "a.energyRequired",
-    "a.estimatedDurationMinutes",
-    "a.currency",
-    "a.estimatedCost",
-    "a.isGroupActivity",
-    "c.name as category",
-    "p.name as pillar",
-    "a.debugUITId",
-    "a.locationLatitude",
-    "a.locationLongitude"
+  // setup rough bounding box coordinate filter so we have to do less filtering in memory
+  const { deltaLon, deltaLat } = getCoordinateBoundingBox(
+    userLat,
+    userLon,
+    filters.distance
   );
+
+  const rawActivities = await query
+    .select(
+      "a.activityId",
+      "a.name",
+      "a.energyRequired",
+      "a.estimatedDurationMinutes",
+      "a.currency",
+      "a.estimatedCost",
+      "a.isGroupActivity",
+      "c.name as category",
+      "p.name as pillar",
+      "a.debugUITId",
+      "a.locationLatitude",
+      "a.locationLongitude"
+    )
+    .whereBetween("a.locationLatitude", [
+      userLat - deltaLat,
+      userLat + deltaLat,
+    ])
+    .whereBetween("a.locationLongitude", [
+      userLon - deltaLon,
+      userLon + deltaLon,
+    ]);
 
   // group categories in memory
   const grouped = {};
@@ -115,6 +145,14 @@ export const getActivities = asyncHandler(async (req, res) => {
         debugUITId: row.debugUITId,
         lat: row.locationLatitude,
         lon: row.locationLongitude,
+        distance: Math.floor(
+          getDistanceFromLatLonInKm(
+            userLat,
+            userLon,
+            row.locationLatitude,
+            row.locationLongitude
+          )
+        ),
       };
     }
 
@@ -132,6 +170,9 @@ export const getActivities = asyncHandler(async (req, res) => {
 
   sendSuccess(res, {
     statusCode: 200,
+    meta: {
+      itemCount: activities.length,
+    },
     message: "Activity list retrieved successfully",
     data: activities,
   });
@@ -160,5 +201,16 @@ export const getActivityDetails = asyncHandler(async (req, res) => {
   sendError(res, {
     statusCode: 404,
     message: `No activityId provided`,
+  });
+});
+
+export const getActivitySuggestions = asyncHandler(async (req, res) => {
+  const { lon, lat, timeOfDay } = req.query;
+
+  const results = await getAISuggestedActivities(req, lon, lat);
+  sendSuccess(res, {
+    statusCode: 200,
+    message: "Successfully gathered AI activity suggestions",
+    data: results,
   });
 });

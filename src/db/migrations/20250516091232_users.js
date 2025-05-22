@@ -12,13 +12,13 @@ export async function up(knex) {
     table.string("firstname").nullable();
     table.string("lastname").nullable();
 
-    table.timestamps();
     table.dateTime("lastLogin");
 
-    /*     table
-      .foreign("subscription")
-      .references("subscriptionId")
-      .inTable("subscription"); */
+    table
+      .dateTime("created_at")
+      .notNullable()
+      .defaultTo(knex.raw("CURRENT_TIMESTAMP"));
+    table.dateTime("updated_at").nullable();
   });
 }
 

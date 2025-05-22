@@ -43,7 +43,11 @@ export async function up(knex) {
     table.jsonb("openingHoursStructured").nullable();
     table.jsonb("tags").nullable(); // store tags, just so we dont have to re-query uitDB and can do local updates of our own categories
 
-    table.timestamps();
+    table
+      .dateTime("created_at")
+      .notNullable()
+      .defaultTo(knex.raw("CURRENT_TIMESTAMP"));
+    table.dateTime("updated_at").nullable();
   });
 }
 

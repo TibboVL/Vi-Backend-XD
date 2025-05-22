@@ -8,8 +8,6 @@ export async function up(knex) {
     table.timestamp("plannedStart").notNullable();
     table.timestamp("plannedEnd").nullable();
 
-    table.timestamp("timestamp");
-
     // Foreign keys
     table
       .foreign("userId")
@@ -28,6 +26,14 @@ export async function up(knex) {
       .references("checkinId")
       .inTable("checkin")
       .onDelete("SET NULL"); // checkin deleted -> set null
+
+    table.dateTime("markedCompletedAt").nullable();
+
+    table
+      .dateTime("created_at")
+      .notNullable()
+      .defaultTo(knex.raw("CURRENT_TIMESTAMP"));
+    table.dateTime("updated_at").nullable();
   });
 
   // Then add FK constraint on checkin.userActivityId via alter table

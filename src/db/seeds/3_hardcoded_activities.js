@@ -99,20 +99,7 @@ export async function seed(knex) {
         { category: "Video", pillar: "Physical" },
       ],
     },
-    {
-      name: "Send a Thank-You Note",
-      description:
-        "Write and send a short message of appreciation to someone who helped you.",
-      source: "Hardcoded",
-      energyRequired: "low",
-      estimatedCost: 0,
-      isGroupActivity: false,
-      estimatedDurationMinutes: 10,
-      categories: [
-        { category: "Note", pillar: "Social" },
-        { category: "Thanks", pillar: "Social" },
-      ],
-    },
+
     {
       name: "Learn a Shortcut",
       description:
@@ -155,17 +142,14 @@ export async function seed(knex) {
     },
 
     {
-      name: "isGroupActivity Yoga",
+      name: "Yoga",
       description: "Join a friend for a 30 min yoga session (live or online).",
       source: "Hardcoded",
       energyRequired: "high",
       estimatedCost: 0,
       isGroupActivity: true,
       estimatedDurationMinutes: 30,
-      categories: [
-        { category: "Yoga", pillar: "Physical" },
-        { category: "isGroupActivity", pillar: "Physical" },
-      ],
+      categories: [{ category: "Yoga", pillar: "Physical" }],
     },
     {
       name: "Teach Back",
@@ -448,9 +432,8 @@ export async function seed(knex) {
     // find inserted activity ID by name
     const inserted = insertedActivities.find((a) => a.name === activity.name);
     if (!inserted) continue;
-    console.log("heeere");
     for (const categoryName of activity.categories.map((cat) => cat.category)) {
-      console.log(categoryName);
+      // console.log(categoryName);
       const categoryId = categoryNameToId[categoryName.toLowerCase()];
       if (categoryId) {
         activityCategoryLinks.push({

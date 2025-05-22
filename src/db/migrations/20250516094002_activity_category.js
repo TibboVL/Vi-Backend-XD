@@ -17,10 +17,15 @@ export async function up(knex) {
 
     table.string("name").notNullable() /* .unique() */;
     table.string("description");
-    table.timestamps();
 
     // Composite unique constraint
     table.unique(["name", "activityPillarId"]);
+
+    table
+      .dateTime("created_at")
+      .notNullable()
+      .defaultTo(knex.raw("CURRENT_TIMESTAMP"));
+    table.dateTime("updated_at").nullable();
   });
 }
 

@@ -1,9 +1,10 @@
 export const sendSuccess = (
   res,
-  { data = null, message = "Success", statusCode = 200 } = {}
+  { data = null, message = "Success", statusCode = 200, meta = {} } = {}
 ) => {
   const response = {
     status: "success",
+    meta,
     message,
     data,
   };
@@ -13,10 +14,16 @@ export const sendSuccess = (
 
 export const sendError = (
   res,
-  { message = "An error occurred", statusCode = 500, errors = null } = {}
+  {
+    message = "An error occurred",
+    statusCode = 500,
+    errors = null,
+    meta = {},
+  } = {}
 ) => {
   const response = {
     status: "error",
+    meta,
     message,
   };
 

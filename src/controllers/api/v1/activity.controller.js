@@ -18,6 +18,7 @@ import { sendError, sendSuccess } from "../../../utils/responses.js";
  * @property {number} [minAge]
  * @property {number} [duration]
  * @property {number} [distance]
+ * @property {number} [includeNoLocation]
  */
 
 // temporary
@@ -59,6 +60,7 @@ export const getActivities = asyncHandler(async (req, res) => {
     distance: req.query.distance ?? 50,
     // @ts-ignore
     categoryId: categoryId,
+    includeNoLocation: req.query.includeNoLocation ?? true,
   };
 
   if (!userLat || !userLon || !filters.distance) {
@@ -104,21 +106,8 @@ export const getActivities = asyncHandler(async (req, res) => {
     filters.distance
   );
 
-  const rawActivities = await query
-    .select(
-      "a.activityId",
-      "a.name",
-      "a.energyRequired",
-      "a.estimatedDurationMinutes",
-      "a.currency",
-      "a.estimatedCost",
-      "a.isGroupActivity",
-      "c.name as category",
-      "p.name as pillar",
-      "a.debugUITId",
-      "a.locationLatitude",
-      "a.locationLongitude"
-    )
+  // filter location bounds
+  query = query
     .whereBetween("a.locationLatitude", [
       userLat - deltaLat,
       userLat + deltaLat,
@@ -127,6 +116,25 @@ export const getActivities = asyncHandler(async (req, res) => {
       userLon - deltaLon,
       userLon + deltaLon,
     ]);
+
+  if (filters.includeNoLocation) {
+    query = query.orWhere("a.locationLatitude", null);
+  }
+
+  const rawActivities = await query.select(
+    "a.activityId",
+    "a.name",
+    "a.energyRequired",
+    "a.estimatedDurationMinutes",
+    "a.currency",
+    "a.estimatedCost",
+    "a.isGroupActivity",
+    "c.name as category",
+    "p.name as pillar",
+    "a.debugUITId",
+    "a.locationLatitude",
+    "a.locationLongitude"
+  );
 
   // group categories in memory
   const grouped = {};
@@ -145,14 +153,16 @@ export const getActivities = asyncHandler(async (req, res) => {
         debugUITId: row.debugUITId,
         lat: row.locationLatitude,
         lon: row.locationLongitude,
-        distance: Math.floor(
-          getDistanceFromLatLonInKm(
-            userLat,
-            userLon,
-            row.locationLatitude,
-            row.locationLongitude
-          )
-        ),
+        distance: row.locationLatitude
+          ? Math.floor(
+              getDistanceFromLatLonInKm(
+                userLat,
+                userLon,
+                row.locationLatitude,
+                row.locationLongitude
+              )
+            )
+          : null,
       };
     }
 

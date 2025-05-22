@@ -13,13 +13,7 @@ export const addCheckin = asyncHandler(async (req, res) => {
     userActivityId,
   } = req.query;
 
-  if (
-    !beforeMoodId ||
-    !afterMoodId ||
-    !beforeEnergy ||
-    !afterEnergy ||
-    !userActivityId
-  ) {
+  if (!beforeMoodId || !afterMoodId || !beforeEnergy || !afterEnergy) {
     return sendError(res, {
       statusCode: 400,
       message: `Request is missing parameters!`,
@@ -37,17 +31,20 @@ export const addCheckin = asyncHandler(async (req, res) => {
     });
   }
 
+  // if this checkin is meant to be linked to an activity and thus not one of the freestanding checkins
   // check if there is indeed a user activity list entry for this user with the given id
-  const userActivityListEntry = await db("user_activity_list")
-    .where("userId", req.user.userId)
-    .where("userActivityId", userActivityId)
-    .first();
+  if (userActivityId) {
+    const userActivityListEntry = await db("user_activity_list")
+      .where("userId", req.user.userId)
+      .where("userActivityId", userActivityId)
+      .first();
 
-  if (!userActivityListEntry) {
-    return sendError(res, {
-      statusCode: 400,
-      message: `No userActivityList entry with id: ${userActivityId} found for this user!`,
-    });
+    if (!userActivityListEntry) {
+      return sendError(res, {
+        statusCode: 400,
+        message: `No userActivityList entry with id: ${userActivityId} found for this user!`,
+      });
+    }
   }
 
   try {
@@ -58,7 +55,7 @@ export const addCheckin = asyncHandler(async (req, res) => {
         afterMoodId: afterMoodId,
         beforeEnergyLevel: beforeEnergy,
         afterEnergyLevel: afterEnergy,
-        userActivityId: userActivityId,
+        userActivityId: userActivityId ?? null,
       })
       .returning("*");
     return sendSuccess(res, {

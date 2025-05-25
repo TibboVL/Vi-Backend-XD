@@ -83,7 +83,10 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
 
     return sendSuccess(res, {
       statusCode: 200,
-      message: "Successfully created user activity list entry",
+      meta: {
+        amount: groupedUserActivityLists.length,
+      },
+      message: "Successfully fetched user activity list entry item(s)",
       data: groupedUserActivityLists,
     });
   } catch (error) {
@@ -93,6 +96,63 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
     });
   }
 });
+export const getUserActivityListItemsToBeReviewed = asyncHandler(
+  async (req, res) => {
+    try {
+      let query = db("user_activity_list as ual")
+        .where("ual.userId", req.user.userId)
+        .where("ual.plannedEnd", "<", new Date())
+        .whereNull("ual.markedCompletedAt");
+
+      const userActivityLists = await query
+        .leftJoin("activity as a", "ual.activityId", "a.activityId")
+        .leftJoin(
+          "activity_activity_category as aac",
+          "a.activityId",
+          "aac.activityId"
+        )
+        .leftJoin(
+          "activity_category as ac",
+          "aac.activityCategoryId",
+          "ac.activityCategoryId"
+        )
+        .leftJoin("activity_pillar as ap", "ac.activityPillarId", "ap.pillarId")
+        .groupBy("ual.userActivityId", "a.activityId", "ap.pillarId")
+        .select([
+          "ual.userActivityId",
+          "ual.userId",
+          "ual.plannedStart",
+          "ual.plannedEnd",
+          "ual.markedCompletedAt",
+          "a.activityId",
+          "a.name as activityTitle",
+          db.raw(`
+            json_agg(
+                json_build_object(
+                'activityCategoryId', ac."activityCategoryId",
+                'name', ac."name",
+                'pillar', ap."name"
+                )
+            ) as categories
+        `),
+        ]);
+
+      return sendSuccess(res, {
+        statusCode: 200,
+        meta: {
+          itemCount: userActivityLists.length,
+        },
+        message: "Successfully fetched user activity list entry items",
+        data: userActivityLists,
+      });
+    } catch (error) {
+      return sendError(res, {
+        statusCode: 500,
+        message: `Failed to get user activity list entries - error: ${error}`,
+      });
+    }
+  }
+);
 export const addActivityToUserList = asyncHandler(async (req, res) => {
   const { activityId, plannedStart, plannedEnd } = req.query;
 
@@ -143,10 +203,10 @@ export const updateActivityToUserList = asyncHandler(async (req, res) => {
     checkinId,
   } = req.query;
 
-  if (!userActivityListId || !plannedStart || !plannedEnd) {
+  if (!userActivityListId) {
     return sendError(res, {
       statusCode: 500,
-      message: "Request is missing parameters!",
+      message: "Request is missing userActivityId!",
     });
   }
 
@@ -163,15 +223,21 @@ export const updateActivityToUserList = asyncHandler(async (req, res) => {
     });
   }
 
+  const updates = {
+    plannedStart: plannedStart ?? null,
+    plannedEnd: plannedEnd ?? null,
+    markedCompletedAt: markedCompletedAt ?? null,
+    checkinId: checkinId ?? null,
+  };
+
   try {
     const [result] = await db("user_activity_list")
       .where("userActivityId", userActivityListId)
-      .update({
-        plannedStart: plannedStart,
-        plannedEnd: plannedEnd,
-        markedCompletedAt: markedCompletedAt ?? null,
-        checkinId: checkinId ?? null,
-      })
+      .update(
+        Object.fromEntries(
+          Object.entries(updates).filter(([_, value]) => value != null)
+        )
+      )
       .returning("*");
     sendSuccess(res, {
       statusCode: 200,

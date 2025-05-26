@@ -21,6 +21,7 @@ export const sendError = (
     meta = {},
   } = {}
 ) => {
+  console.warn(message);
   const response = {
     status: "error",
     meta,

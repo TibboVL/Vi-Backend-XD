@@ -20,7 +20,7 @@ export default {
   production: {
     client: "pg",
     connection: {
-      host: "TODO", //TODO: setup hosted db
+      host: process.env.DB_HOST,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_IDENTIFIER,

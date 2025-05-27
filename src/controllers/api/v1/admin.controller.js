@@ -39,9 +39,10 @@ export const handleMigrateDB = asyncHandler(async (req, res) => {
   } else {
     try {
       await db.migrate.latest();
+      await db.seed.run();
       return sendSuccess(res, {
         statusCode: 200,
-        message: "✅  Database has been initialized",
+        message: "✅  Database has been initialized and seeded",
       });
     } catch (error) {
       console.warn(error);

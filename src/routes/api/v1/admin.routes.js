@@ -6,7 +6,7 @@ import {
 
 const adminRoutes = Router();
 
-adminRoutes.post("/migrateDB", handleMigrateDB);
+adminRoutes.get("/migrateDB", handleMigrateDB);
 adminRoutes.get("/populateUITApiData", populateUitEvents);
 
 export default adminRoutes;

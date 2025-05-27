@@ -4,6 +4,19 @@ import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { sendError, sendSuccess } from "../../../utils/responses.js";
 
 export async function getOrCreateUser(auth0User) {
+  const hasUserTable = await db.schema.hasTable("user");
+
+  if (!hasUserTable) {
+    console.warn("⚠️ 'user' table missing. Running migrations...");
+    try {
+      await db.migrate.up({ name: "20250516091232_users.js" });
+      console.info("✅ Migrations run successfully.");
+    } catch (err) {
+      console.error("❌ Error running migrations:", err);
+      throw new Error("Database migration failed.");
+    }
+  }
+
   let user = await db("user").where({ auth0Id: auth0User.payload.sub }).first();
 
   if (!user) {

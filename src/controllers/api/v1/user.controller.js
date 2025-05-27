@@ -3,45 +3,20 @@ import { getUitEventDecodedList } from "../../../services/UitVlaanderenService.j
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { sendError, sendSuccess } from "../../../utils/responses.js";
 
-// temporary
-export const getUsers = asyncHandler(async (req, res) => {
-  const works = false;
-
-  console.log(req.body);
-  console.log(req.body.username);
-
-  if (works) {
-    sendSuccess(res, {
-      statusCode: 200,
-      message: "Users loaded succesfully",
-      data: [{ id: 1, name: "Alice" }],
-    });
-  } else {
-    sendError(res, {
-      statusCode: 400,
-      message: "Validation failed",
-      errors: [
-        "Password must be more than 8 characters",
-        "Password must include at least one special character",
-      ],
-    });
-  }
-});
-
-export const getUitEvents = asyncHandler(async (req, res) => {
-  console.log(req.query);
-  const events = await getUitEventDecodedList(req.query);
-
-  //console.log(events);
-
-  sendSuccess(res, {
-    statusCode: 200,
-    message: "UitVlaanderen Events Retrieved",
-    data: events,
-  });
-});
-
 export async function getOrCreateUser(auth0User) {
+  const hasUserTable = await db.schema.hasTable("user");
+
+  if (!hasUserTable) {
+    console.warn("⚠️ 'user' table missing. Running migrations...");
+    try {
+      await db.migrate.up({ name: "20250516091232_users.js" });
+      console.info("✅ Migrations run successfully.");
+    } catch (err) {
+      console.error("❌ Error running migrations:", err);
+      throw new Error("Database migration failed.");
+    }
+  }
+
   let user = await db("user").where({ auth0Id: auth0User.payload.sub }).first();
 
   if (!user) {

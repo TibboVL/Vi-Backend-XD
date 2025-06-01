@@ -25,6 +25,10 @@ export async function requireUser(req, res, next) {
     }
 
     req.user = user;
+
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`
+    );
     next();
   } catch (err) {
     next(err);

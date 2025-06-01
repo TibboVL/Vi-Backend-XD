@@ -190,8 +190,32 @@ export const getActivities = asyncHandler(async (req, res) => {
 
 export const getActivityDetails = asyncHandler(async (req, res) => {
   if (req?.params?.activityId) {
-    const activity = await db("activity")
-      .where("activityId", req.params.activityId)
+    const activity = await db("activity as a")
+      .where("a.activityId", req.params.activityId)
+      .leftJoin(
+        "activity_activity_category as aac",
+        "a.activityId",
+        "aac.activityId"
+      )
+      .leftJoin(
+        "activity_category as ac",
+        "aac.activityCategoryId",
+        "ac.activityCategoryId"
+      )
+      .leftJoin("activity_pillar as ap", "ac.activityPillarId", "ap.pillarId")
+      .groupBy("a.activityId")
+      .select([
+        "a.*",
+        db.raw(`
+            json_agg(
+                json_build_object(
+                'activityCategoryId', aac."activityCategoryId",
+                'name', ac."name",
+                'pillar', ap."name"
+                )
+            ) as categories
+        `),
+      ])
       .first();
 
     if (activity) {

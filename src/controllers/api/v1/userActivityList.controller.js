@@ -117,7 +117,7 @@ export const getUserActivityListItemsToBeReviewed = asyncHandler(
           "ac.activityCategoryId"
         )
         .leftJoin("activity_pillar as ap", "ac.activityPillarId", "ap.pillarId")
-        .groupBy("ual.userActivityId", "a.activityId", "ap.pillarId")
+        .groupBy("ual.userActivityId", "a.activityId")
         .select([
           "ual.userActivityId",
           "ual.userId",
@@ -154,14 +154,17 @@ export const getUserActivityListItemsToBeReviewed = asyncHandler(
   }
 );
 export const addActivityToUserList = asyncHandler(async (req, res) => {
-  const { activityId, plannedStart, plannedEnd } = req.query;
-
-  if (!activityId || !plannedStart || !plannedEnd) {
+  if (
+    !req.body?.activityId ||
+    !req.body?.plannedStart ||
+    !req.body?.plannedEnd
+  ) {
     return sendError(res, {
       statusCode: 500,
       message: "Request is missing parameters!",
     });
   }
+  const { activityId, plannedStart, plannedEnd } = req.body;
 
   // check if activity exists
   const activity = await db("activity").where("activityId", activityId).first();

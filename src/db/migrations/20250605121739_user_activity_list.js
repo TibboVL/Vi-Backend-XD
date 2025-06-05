@@ -3,6 +3,7 @@ export async function up(knex) {
     table.increments("userActivityId").unsigned().notNullable();
     table.integer("userId").unsigned().notNullable();
     table.integer("activityId").unsigned().notNullable();
+    table.integer("suggestedActivityId").unsigned().nullable(); // null if didnt come from ai, linked if from ai
     table.integer("checkinId").unsigned().nullable();
 
     table.timestamp("plannedStart").notNullable();
@@ -26,6 +27,12 @@ export async function up(knex) {
       .references("checkinId")
       .inTable("checkin")
       .onDelete("SET NULL"); // checkin deleted -> set null
+
+    table
+      .foreign("suggestedActivityId")
+      .references("suggestedActivityId")
+      .inTable("suggested_activity")
+      .onDelete("SET NULL"); // suggested activity deleted -> set null
 
     table.dateTime("markedCompletedAt").nullable();
 

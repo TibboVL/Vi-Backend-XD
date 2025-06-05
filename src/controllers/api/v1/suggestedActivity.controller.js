@@ -49,7 +49,7 @@ export const insertSuggestedActivityItems = async (
 
 export const GetActivitySuggestionsWithDetails = asyncHandler(
   async (req, res) => {
-    const { activitySuggestionGroupId } = req.body;
+    const { activitySuggestionGroupId } = req.query;
 
     try {
       const results = await GetActivitySuggestionsWithDetailsCore(
@@ -75,7 +75,7 @@ export const GetActivitySuggestionsWithDetailsCore = async (
   req,
   activitySuggestionGroupId
 ) => {
-  if (!req.body.lon || !req.body.lat) {
+  if (!req.query.lon || !req.query.lat) {
     return sendError(req, {
       statusCode: 503,
       message: "long,lat missing",
@@ -96,15 +96,15 @@ export const GetActivitySuggestionsWithDetailsCore = async (
   } else {
     query = query.orderBy("sag.created_at", "desc");
   }
+  const suggestedActivityGroup = await query.first("*"); // only get one
 
-  // join to children and related activities
-  query = query.leftJoin(
-    "suggested_activity as sa",
-    "sag.suggestedActivityGroupId",
-    "sa.suggestedActivityGroupId"
-  );
-  // get the activity suggestions
-  const activitySuggestionList = await query.select("*");
+  // get the activity suggestions related to the group
+  const activitySuggestionList = await db("suggested_activity as sa")
+    .where(
+      "suggestedActivityGroupId",
+      suggestedActivityGroup.suggestedActivityGroupId
+    )
+    .select("*");
 
   // get acivities
   const activitySuggestionListWithActivities = [];
@@ -136,26 +136,27 @@ export const GetActivitySuggestionsWithDetailsCore = async (
         `),
       ])
       .first();
-
-    activitySuggestionListWithActivities.push({
-      ...activitySuggestion,
-      activity: {
-        ...activity,
-        // @ts-ignore
-        distance: activity.locationLatitude
-          ? Math.floor(
-              getDistanceFromLatLonInKm(
-                req.body.lat,
-                req.body.lon,
-                // @ts-ignore
-                activity.locationLatitude,
-                // @ts-ignore
-                activity.locationLongitude
+    if (activity) {
+      activitySuggestionListWithActivities.push({
+        ...activitySuggestion,
+        activity: {
+          ...activity,
+          // @ts-ignore
+          distance: activity.locationLatitude
+            ? Math.floor(
+                getDistanceFromLatLonInKm(
+                  req.query.lat,
+                  req.query.lon,
+                  // @ts-ignore
+                  activity.locationLatitude,
+                  // @ts-ignore
+                  activity.locationLongitude
+                )
               )
-            )
-          : null,
-      },
-    });
+            : null,
+        },
+      });
+    }
   }
 
   return activitySuggestionListWithActivities;

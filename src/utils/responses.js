@@ -1,10 +1,18 @@
 export const sendSuccess = (
   res,
-  { data = null, message = "Success", statusCode = 200, meta = {} } = {}
+  {
+    data = null,
+    message = "Success",
+    statusCode = 200,
+    meta = { itemCount: null },
+  } = {}
 ) => {
   const response = {
     status: "success",
-    meta,
+    meta: {
+      ...meta,
+      itemCount: meta.itemCount ? meta.itemCount : data.length,
+    },
     message,
     data,
   };

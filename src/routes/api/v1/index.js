@@ -4,6 +4,7 @@ import moodRoutes from "./mood.routes.js";
 import checkinRoutes from "./checkin.routes.js";
 import userActivityListRoutes from "./userActivityList.routes.js";
 import adminRoutes from "./admin.routes.js";
+import activitySuggestionRoutes from "./activitySuggestion.routes.js";
 
 const router = Router();
 
@@ -13,5 +14,6 @@ router.use("/activities", activityRoutes);
 router.use("/moods", moodRoutes);
 router.use("/checkin", checkinRoutes);
 router.use("/useractivitylist", userActivityListRoutes);
+router.use("/activitySuggestions", activitySuggestionRoutes);
 
 export default router;

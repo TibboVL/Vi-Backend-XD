@@ -72,8 +72,8 @@ function getWeatherDescription(weatherCode) {
 export async function getWeatherData(latitude, longitude) {
   const baseUrl = "https://api.open-meteo.com/v1/forecast";
   const params = new URLSearchParams({
-    latitude: latitude.toString(),
-    longitude: longitude.toString(),
+    latitude: latitude?.toString(),
+    longitude: longitude?.toString(),
     current_weather: "true",
     hourly:
       "temperature_2m,apparent_temperature,precipitation,weathercode,windspeed_10m,cloudcover",
@@ -233,6 +233,7 @@ export function processWeatherForLLM(weatherData, userTimezone) {
   }
 
   return {
+    current_time: nowInUserTimezone,
     current_weather_summary: currentSummary,
     forecast_summary: forecastSummary.join(" "),
   };

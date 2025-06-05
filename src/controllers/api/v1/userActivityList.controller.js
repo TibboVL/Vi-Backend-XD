@@ -83,9 +83,6 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
 
     return sendSuccess(res, {
       statusCode: 200,
-      meta: {
-        amount: groupedUserActivityLists.length,
-      },
       message: "Successfully fetched user activity list entry item(s)",
       data: groupedUserActivityLists,
     });
@@ -181,6 +178,7 @@ export const addActivityToUserList = asyncHandler(async (req, res) => {
       .insert({
         userId: req.user.userId,
         activityId: activityId,
+        suggestedActivityId: req.body.suggestedActivityId ?? null,
         plannedStart: plannedStart,
         plannedEnd: plannedEnd,
       })

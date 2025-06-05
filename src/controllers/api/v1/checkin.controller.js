@@ -91,7 +91,7 @@ export const addCheckin = asyncHandler(async (req, res) => {
   }
 });
 
-export const getLastValidCheckin = asyncHandler(async (req, res) => {
+export const lastValidCheckinHelper = async (req) => {
   try {
     const latestNonFreestandingCheckin = await db("checkin as c")
       .leftJoin(
@@ -129,24 +129,38 @@ export const getLastValidCheckin = asyncHandler(async (req, res) => {
       ]);
 
     if (!latestFreestandingCheckin && !latestNonFreestandingCheckin) {
-      return sendError(res, {
-        statusCode: 204,
-        message: `User does not have any (valid) checkins yet`,
-      });
-    }
-    return sendSuccess(res, {
-      statusCode: 201,
-      message: `Successfully fetched checkin entry`,
-      data:
-        (latestNonFreestandingCheckin?.validAtDate ?? new Date(0)) >
-        (latestFreestandingCheckin?.validAtDate ?? new Date(0))
+      return { error: null, data: null };
+    } else {
+      const latestCheckin =
+        latestNonFreestandingCheckin?.validAtDate ??
+        new Date(0) > (latestFreestandingCheckin?.validAtDate ?? new Date(0))
           ? latestNonFreestandingCheckin
-          : latestFreestandingCheckin,
-    });
+          : latestFreestandingCheckin;
+      return { error: null, data: latestCheckin };
+    }
   } catch (error) {
+    console.error(error);
+    return { error: error, data: null };
+  }
+};
+
+export const getLastValidCheckin = asyncHandler(async (req, res) => {
+  const checkin = await lastValidCheckinHelper(req);
+  if (checkin.error) {
     return sendError(res, {
       statusCode: 400,
-      message: `Failed to get checkin item - error: ${error}`,
+      message: `Failed to get checkin item - error: ${checkin.error}`,
     });
   }
+  if (checkin.data == null) {
+    return sendError(res, {
+      statusCode: 204,
+      message: `User does not have any (valid) checkins yet`,
+    });
+  }
+  return sendSuccess(res, {
+    statusCode: 201,
+    message: `Successfully fetched checkin entry`,
+    data: checkin.data,
+  });
 });

@@ -178,4 +178,13 @@
  * @property {'Available' | 'Unavailable'} type
  */
 
+/**
+ * @typedef {Object} AIActivityResponse
+ * @property {number} activityId
+ * @property {number} confidence
+ * @property {number} yourEstimatedRequiredEnergyLevel
+ * @property {number} yourIsPossibleInGroupIdea
+ * @property {string} reasoning
+ */
+
 export {};

@@ -21,12 +21,11 @@ import { sendError, sendSuccess } from "../../../utils/responses.js";
  * @property {number} [includeNoLocation]
  */
 
-// temporary
-export const getActivities = asyncHandler(async (req, res) => {
-  const energyLevelParam = req.query.energyLevel;
-  const userLon = parseFloat(req.query.lon) ?? undefined;
-  const userLat = parseFloat(req.query.lat) ?? undefined;
-
+export const getActivitiesCore = async (req) => {
+  const energyLevelParam = req.query?.energyLevel;
+  const userLon = parseFloat(req.query?.lon) ?? undefined;
+  const userLat = parseFloat(req.query?.lat) ?? undefined;
+  //console.log(req.query);
   const energyLevel =
     typeof energyLevelParam === "string"
       ? [energyLevelParam]
@@ -36,7 +35,7 @@ export const getActivities = asyncHandler(async (req, res) => {
         )
       : undefined;
 
-  const categoryIdParam = req.query.categoryId;
+  const categoryIdParam = req.query?.categoryId;
   const categoryId =
     typeof categoryIdParam === "string"
       ? [categoryIdParam]
@@ -49,25 +48,25 @@ export const getActivities = asyncHandler(async (req, res) => {
     // @ts-ignore
     energyLevel: energyLevel,
     sharable:
-      req.query.sharable === "true"
+      req.query?.sharable === "true"
         ? true
-        : req.query.sharable === "false"
+        : req.query?.sharable === "false"
         ? false
         : undefined,
-    minAge: req.query.minAge ? parseInt(req.query.minAge, 10) : undefined,
-    maxPrice: req.query.maxPrice ? parseInt(req.query.maxPrice, 10) : undefined,
+    minAge: req.query?.minAge ? parseInt(req.query?.minAge, 10) : undefined,
+    maxPrice: req.query?.maxPrice
+      ? parseInt(req.query?.maxPrice, 10)
+      : undefined,
     duration: undefined,
-    distance: req.query.distance ?? 50,
+    distance: req.query?.distance ? req.query?.distance : 50,
     // @ts-ignore
     categoryId: categoryId,
-    includeNoLocation: req.query.includeNoLocation ?? true,
+    includeNoLocation: req.query?.includeNoLocation ?? true,
   };
 
   if (!userLat || !userLon || !filters.distance) {
-    return sendError(res, {
-      statusCode: 400,
-      message: "user Lon, Lat and distance are required fields!",
-    });
+    console.error("user Lon, Lat and distance are required fields!");
+    return { error: 400, data: null };
   }
 
   let query = db("activity as a")
@@ -175,16 +174,31 @@ export const getActivities = asyncHandler(async (req, res) => {
   }
 
   const activities = Object.values(grouped);
+  return { error: null, data: activities };
+};
 
-  console.log(activities.length);
-
+export const getActivities = asyncHandler(async (req, res) => {
+  const results = await getActivitiesCore(req);
+  if (results.error) {
+    if ((results.error = 400)) {
+      return sendError(res, {
+        statusCode: 400,
+        message: "user Lon, Lat and distance are required fields!",
+      });
+    } else {
+      return sendError(res, {
+        statusCode: 500,
+        message: "Failed to get activities",
+      });
+    }
+  }
   sendSuccess(res, {
     statusCode: 200,
     meta: {
-      itemCount: activities.length,
+      itemCount: results.data.length,
     },
     message: "Activity list retrieved successfully",
-    data: activities,
+    data: results.data,
   });
 });
 
@@ -239,9 +253,9 @@ export const getActivityDetails = asyncHandler(async (req, res) => {
 });
 
 export const getActivitySuggestions = asyncHandler(async (req, res) => {
-  const { lon, lat, timeOfDay } = req.query;
+  const { lon, lat } = req.query;
 
-  const results = await getAISuggestedActivities(req, lon, lat);
+  const results = await getAISuggestedActivities(req, res, lon, lat);
   sendSuccess(res, {
     statusCode: 200,
     message: "Successfully gathered AI activity suggestions",

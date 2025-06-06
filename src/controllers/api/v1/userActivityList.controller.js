@@ -4,7 +4,6 @@ import { sendError, sendSuccess } from "../../../utils/responses.js";
 
 export const getUserActivityList = asyncHandler(async (req, res) => {
   const userActivityListId = req.params.userActivityListId;
-
   try {
     let query = db("user_activity_list as ual").where(
       "ual.userId",
@@ -26,7 +25,7 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
         "ac.activityCategoryId"
       )
       .leftJoin("activity_pillar as ap", "ac.activityPillarId", "ap.pillarId")
-      .groupBy("ual.userActivityId", "a.activityId", "ap.pillarId")
+      .groupBy("ual.userActivityId", "a.activityId")
       .select([
         "ual.userActivityId",
         "ual.userId",
@@ -50,6 +49,7 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
     for (let item of userActivityLists) {
       //console.log(item.plannedStart);
       //console.log(item.plannedStart.toISOString());
+      // @ts-ignore
       const newDate = item.plannedStart.toISOString().split("T")[0];
 
       const existingEntry = groupedUserActivityLists.find(
@@ -74,6 +74,13 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
           data: [item],
         });
       }
+      // also make sure to order within the day
+      const newEntry = groupedUserActivityLists.find(
+        (entry) => entry.title == newDate
+      );
+      newEntry.data.sort(
+        (a, b) => new Date(a.plannedStart) - new Date(b.plannedStart)
+      );
     }
     groupedUserActivityLists = groupedUserActivityLists.sort(
       // @ts-ignore

@@ -3,6 +3,9 @@
  * @returns { Promise<void> }
  */
 export async function up(knex) {
+  const exists = await knex.schema.hasTable("user");
+  if (exists) return;
+
   await knex.schema.createTable("user", (table) => {
     table.increments("userId").unsigned().notNullable(); // internal PK
     table.string("auth0Id").notNullable().unique(); // Auth0's unique user ID from the JWT "sub"

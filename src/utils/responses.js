@@ -11,7 +11,7 @@ export const sendSuccess = (
     status: "success",
     meta: {
       ...meta,
-      itemCount: meta.itemCount ? meta.itemCount : data.length,
+      itemCount: meta.itemCount ? meta.itemCount : data ? data.length : null,
     },
     message,
     data,

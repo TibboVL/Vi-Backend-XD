@@ -79,6 +79,7 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
         (entry) => entry.title == newDate
       );
       newEntry.data.sort(
+        // @ts-ignore
         (a, b) => new Date(a.plannedStart) - new Date(b.plannedStart)
       );
     }

@@ -115,6 +115,7 @@ export const lastValidCheckinHelper = async (req) => {
       ]);
     const latestFreestandingCheckin = await db("checkin as c")
       .leftJoin("mood as m", "m.moodId", "c.beforeMoodId") // freestanding so only before is filled in
+      .leftJoin("mood as pm", "pm.moodId", "m.parentMoodId") // freestanding so only before is filled in
       .where("c.userId", req.user.userId) // only checkins this user
       .whereNull("c.userActivityId") // only non freestanding activities
       .orderBy("c.created_at", "desc") // ordered by their planned end date
@@ -125,15 +126,15 @@ export const lastValidCheckinHelper = async (req) => {
         "c.beforeEnergyLevel as energy", // freestanding so only before is filled in
         "m.label as mood",
         "m.parentMoodId",
+        "pm.label as parentMood",
         "c.created_at as validAtDate",
       ]);
-
     if (!latestFreestandingCheckin && !latestNonFreestandingCheckin) {
       return { error: null, data: null };
     } else {
       const latestCheckin =
-        latestNonFreestandingCheckin?.validAtDate ??
-        new Date(0) > (latestFreestandingCheckin?.validAtDate ?? new Date(0))
+        (latestNonFreestandingCheckin?.validAtDate ?? new Date(0)) >
+        (latestFreestandingCheckin?.validAtDate ?? new Date(0))
           ? latestNonFreestandingCheckin
           : latestFreestandingCheckin;
       return { error: null, data: latestCheckin };

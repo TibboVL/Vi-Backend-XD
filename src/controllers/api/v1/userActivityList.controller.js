@@ -260,3 +260,43 @@ export const updateActivityToUserList = asyncHandler(async (req, res) => {
     });
   }
 });
+
+export const deleteActivityFromUserActivityList = asyncHandler(async (req, res) => {
+  const userActivityListId = req.params.userActivityListId;
+
+  if (!userActivityListId) {
+    return sendError(res, {
+      statusCode: 400,
+      message: "Request is missing userActivityListId!",
+    });
+  }
+
+  // check if user activity list entry exists
+  const userActivityList = await db("user_activity_list")
+    .where("userActivityId", userActivityListId)
+    .where("userId", req.user.userId)
+    .first();
+
+  if (!userActivityList) {
+    return sendError(res, {
+      statusCode: 404,
+      message: `No user activity list entry with Id: ${userActivityListId}!`,
+    });
+  }
+
+  try {
+    await db("user_activity_list")
+      .where("userActivityId", userActivityListId)
+      .where("userId", req.user.userId)
+      .del();
+    sendSuccess(res, {
+      statusCode: 200,
+      message: "Successfully deleted user activity list entry",
+    });
+  } catch (error) {
+    return sendError(res, {
+      statusCode: 500,
+      message: `Failed to delete user activity list entry - error: ${error}`,
+    });
+  }
+});

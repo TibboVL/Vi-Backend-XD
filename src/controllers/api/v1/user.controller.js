@@ -1,7 +1,37 @@
 import db from "../../../db/index.js";
-import { getUitEventDecodedList } from "../../../services/UitVlaanderenService.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { sendError, sendSuccess } from "../../../utils/responses.js";
+
+export const getDoesUserExist = asyncHandler(async (req, res) => {
+  const auth0User = req.auth;
+  //console.log("req.auth =", req.auth);
+
+  if (!auth0User?.payload?.sub) {
+    return sendError(res, {
+      statusCode: 401,
+      message: "Invalid Auth0 token.",
+    });
+  }
+
+  const user = await db("user")
+    .where({ auth0Id: auth0User.payload.sub })
+    .first()
+    .select("userId"); // Only select needed fields
+
+  if (user) {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: "User exists",
+      data: { exists: true },
+    });
+  }
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: "User does not exist",
+    data: { exists: false },
+  });
+});
 
 export async function getOrCreateUser(auth0User) {
   const hasUserTable = await db.schema.hasTable("user");

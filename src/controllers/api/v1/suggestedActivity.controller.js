@@ -56,11 +56,17 @@ export const GetActivitySuggestionsWithDetails = asyncHandler(
         req,
         activitySuggestionGroupId
       );
+      if (results.error) {
+        return sendError(res, {
+          statusCode: results.statusCode,
+          message: results.error,
+        });
+      }
 
       return sendSuccess(res, {
         statusCode: 200,
-        message: `successfully retrieved activity suggestions for activitySuggestionGroupId: ${results[0]?.activitySuggestionGroupId}`,
-        data: results,
+        message: `successfully retrieved activity suggestions for activitySuggestionGroupId: ${results.data[0]?.activitySuggestionGroupId}`,
+        data: results.data,
       });
     } catch (error) {
       return sendError(res, {
@@ -76,10 +82,7 @@ export const GetActivitySuggestionsWithDetailsCore = async (
   activitySuggestionGroupId
 ) => {
   if (!req.query.lon || !req.query.lat) {
-    return sendError(req, {
-      statusCode: 503,
-      message: "long,lat missing",
-    });
+    return { statusCode: 503, error: "long,lat missing", data: null };
   }
   // start from the sug act group and only get ones this user is allowed to see
   let query = db("suggested_activity_group as sag").where(
@@ -97,6 +100,14 @@ export const GetActivitySuggestionsWithDetailsCore = async (
     query = query.orderBy("sag.created_at", "desc");
   }
   const suggestedActivityGroup = await query.first("*"); // only get one
+
+  if (!suggestedActivityGroup) {
+    return {
+      statusCode: 503,
+      error: `Failed to find group of suggested activities with id: ${activitySuggestionGroupId}`,
+      data: null,
+    };
+  }
 
   // get the activity suggestions related to the group
   const activitySuggestionList = await db("suggested_activity as sa")
@@ -159,5 +170,9 @@ export const GetActivitySuggestionsWithDetailsCore = async (
     }
   }
 
-  return activitySuggestionListWithActivities;
+  return {
+    statusCode: null,
+    error: null,
+    data: activitySuggestionListWithActivities,
+  };
 };

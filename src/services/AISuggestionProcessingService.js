@@ -121,11 +121,17 @@ export async function getAISuggestedActivities(request, res, lon, lat) {
       request,
       suggestedActivityGroup.suggestedActivityGroupId
     );
+  if (activtySuggestionsWithDetails.error) {
+    return sendError(res, {
+      statusCode: 500,
+      message: `❌  Failed to get newly created reccomendations: ${activtySuggestionsWithDetails.error}`,
+    });
+  }
 
   return sendSuccess(res, {
     statusCode: 200,
     message: `Successfully gathered and stored ai suggestions for user: ${request.user.email}`,
-    data: activtySuggestionsWithDetails,
+    data: activtySuggestionsWithDetails.data,
   });
 }
 // Energy levels with lowercase string variants

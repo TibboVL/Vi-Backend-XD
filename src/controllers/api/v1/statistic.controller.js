@@ -56,6 +56,22 @@ export const getPerPillarStatistics = asyncHandler(async (req, res) => {
       db.raw('DATE(ual."plannedStart") AS date')
     );
 
+  let pillarTotals = {};
+  for (const stat of statistics) {
+    console.log(typeof stat.durationseconds);
+    if (pillarTotals[stat.name]) {
+      pillarTotals[stat.name] =
+        parseFloat(pillarTotals[stat.name]) + parseFloat(stat.durationseconds);
+    } else {
+      pillarTotals[stat.name] = parseFloat(stat.durationseconds);
+    }
+  }
+
+  const pillarTotalMins = {};
+  for (const [key, value] of Object.entries(pillarTotals)) {
+    pillarTotalMins[key] = value / 60;
+  }
+
   sendSuccess(res, {
     statusCode: 200,
     message: `Statistics for period: ${start} to ${end} retrieved`,
@@ -65,6 +81,7 @@ export const getPerPillarStatistics = asyncHandler(async (req, res) => {
     data: {
       start: start,
       end: end,
+      pillarStats: pillarTotalMins,
       statistics: statistics,
     },
   });

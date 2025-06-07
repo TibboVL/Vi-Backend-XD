@@ -2,7 +2,6 @@ import db from "../../../db/index.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { sendError, sendSuccess } from "../../../utils/responses.js";
 
-// temporary
 export const getMoods = asyncHandler(async (req, res) => {
   const moods = await db("mood as m").select(
     "m.moodId",

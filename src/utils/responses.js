@@ -1,18 +1,20 @@
 export const sendSuccess = (
   res,
-  {
-    data = null,
-    message = "Success",
-    statusCode = 200,
-    meta = { itemCount: null },
-  } = {}
+  { data = null, message = "Success", statusCode = 200, meta = null } = {}
 ) => {
+  const finalMeta = {
+    ...meta,
+    itemCount:
+      meta?.itemCount != null
+        ? meta?.itemCount
+        : Array.isArray(data)
+        ? data.length
+        : null,
+  };
+
   const response = {
     status: "success",
-    meta: {
-      ...meta,
-      itemCount: meta.itemCount ? meta.itemCount : data ? data.length : null,
-    },
+    meta: finalMeta,
     message,
     data,
   };

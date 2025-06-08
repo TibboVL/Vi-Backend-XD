@@ -32,6 +32,7 @@ export const getUserActivityList = asyncHandler(async (req, res) => {
         "a.activityId",
         "ual.plannedStart",
         "ual.plannedEnd",
+        "ual.markedCompletedAt",
         "a.name as activityTitle",
         db.raw(`
             json_agg(
@@ -165,7 +166,7 @@ export const addActivityToUserList = asyncHandler(async (req, res) => {
     !req.body?.plannedEnd
   ) {
     return sendError(res, {
-      statusCode: 500,
+      statusCode: 503,
       message: "Request is missing parameters!",
     });
   }
@@ -204,31 +205,30 @@ export const addActivityToUserList = asyncHandler(async (req, res) => {
   }
 });
 export const updateActivityToUserList = asyncHandler(async (req, res) => {
+  if (!req.body?.userActivityId) {
+    return sendError(res, {
+      statusCode: 503,
+      message: "Request is missing user activity id!",
+    });
+  }
   const {
-    userActivityListId,
+    userActivityId,
     plannedStart,
     plannedEnd,
     markedCompletedAt,
     checkinId,
-  } = req.query;
-
-  if (!userActivityListId) {
-    return sendError(res, {
-      statusCode: 500,
-      message: "Request is missing userActivityId!",
-    });
-  }
-
+  } = req.body;
+  console.log(plannedStart, plannedEnd);
   // check if user activity list entry exists
   const userActivityList = await db("user_activity_list")
-    .where("userActivityId", userActivityListId)
+    .where("userActivityId", userActivityId)
     .where("userId", req.user.userId)
     .first();
 
   if (!userActivityList) {
     return sendError(res, {
       statusCode: 404,
-      message: `No user activity list with Id: ${userActivityListId}!`,
+      message: `No user activity list with Id: ${userActivityId}!`,
     });
   }
 
@@ -241,7 +241,7 @@ export const updateActivityToUserList = asyncHandler(async (req, res) => {
 
   try {
     const [result] = await db("user_activity_list")
-      .where("userActivityId", userActivityListId)
+      .where("userActivityId", userActivityId)
       .update(
         Object.fromEntries(
           Object.entries(updates).filter(([_, value]) => value != null)
@@ -260,3 +260,38 @@ export const updateActivityToUserList = asyncHandler(async (req, res) => {
     });
   }
 });
+
+export const deleteActivityFromUserActivityList = asyncHandler(
+  async (req, res) => {
+    if (!req.query?.userActivityId) {
+      return sendError(res, {
+        statusCode: 503,
+        message: "Request is missing user activity list id!",
+      });
+    }
+    const { userActivityId } = req.query;
+
+    try {
+      const deletionResult = await db("user_activity_list")
+        .where("userActivityId", userActivityId)
+        .where("userId", req.user.userId)
+        .del();
+      if (deletionResult == 0) {
+        return sendError(res, {
+          statusCode: 404,
+          message: `No user activity list entry with Id: ${userActivityId}!`,
+        });
+      } else {
+        return sendSuccess(res, {
+          statusCode: 200,
+          message: "Successfully deleted user activity list entry",
+        });
+      }
+    } catch (error) {
+      return sendError(res, {
+        statusCode: 500,
+        message: `Failed to delete user activity list entry - error: ${error}`,
+      });
+    }
+  }
+);

@@ -9,11 +9,11 @@ import {
 
 const userActivityListRoutes = Router();
 
-userActivityListRoutes.post("/add", addActivityToUserList);
-userActivityListRoutes.post("/update", updateActivityToUserList);
 userActivityListRoutes.get("/", getUserActivityList);
 userActivityListRoutes.get("/toReview", getUserActivityListItemsToBeReviewed);
 userActivityListRoutes.get("/:userActivityListId", getUserActivityList);
-userActivityListRoutes.delete("/:userActivityListId", deleteActivityFromUserActivityList);
+userActivityListRoutes.post("/add", addActivityToUserList);
+userActivityListRoutes.post("/update", updateActivityToUserList);
+userActivityListRoutes.delete("/delete", deleteActivityFromUserActivityList);
 
 export default userActivityListRoutes;

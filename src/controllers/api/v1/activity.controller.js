@@ -174,6 +174,7 @@ export const getActivitiesCore = async (req) => {
   }
 
   const activities = Object.values(grouped);
+
   return { error: null, data: activities };
 };
 
@@ -192,7 +193,7 @@ export const getActivities = asyncHandler(async (req, res) => {
       });
     }
   }
-  sendSuccess(res, {
+  return sendSuccess(res, {
     statusCode: 200,
     meta: {
       itemCount: results.data.length,
@@ -256,7 +257,7 @@ export const getActivitySuggestions = asyncHandler(async (req, res) => {
   const { lon, lat } = req.query;
 
   const results = await getAISuggestedActivities(req, res, lon, lat);
-  sendSuccess(res, {
+  return sendSuccess(res, {
     statusCode: 200,
     message: "Successfully gathered AI activity suggestions",
     data: results,

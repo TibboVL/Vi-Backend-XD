@@ -1,6 +1,7 @@
 import db from "../../../db/index.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { sendError, sendSuccess } from "../../../utils/responses.js";
+import { createSubscriptionCore } from "./subscription.controller.js";
 
 export const getDoesUserExist = asyncHandler(async (req, res) => {
   const auth0User = req.auth;
@@ -39,10 +40,19 @@ export async function getOrCreateUser(auth0User) {
   if (!hasUserTable) {
     console.warn("⚠️ 'user' table missing. Running migrations...");
     try {
-      await db.migrate.up({ name: "20250516091232_users.js" });
+      //await db.migrate.up({ name: "20250516091232_users.js" });
+      //await db.migrate.up();
+      await db.migrate.latest();
       console.info("✅ Migrations run successfully.");
-    } catch (err) {
-      console.error("❌ Error running migrations:", err);
+      try {
+        await db.seed.run();
+        console.info("✅ Seeds run successfully.");
+      } catch (error) {
+        console.error("❌ Error running seeds:", error);
+        throw new Error("Database seeding failed.");
+      }
+    } catch (error) {
+      console.error("❌ Error running migrations:", error);
       throw new Error("Database migration failed.");
     }
   }

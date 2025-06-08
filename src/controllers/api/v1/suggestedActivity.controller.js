@@ -103,8 +103,12 @@ export const GetActivitySuggestionsWithDetailsCore = async (
 
   if (!suggestedActivityGroup) {
     return {
-      statusCode: 503,
-      error: `Failed to find group of suggested activities with id: ${activitySuggestionGroupId}`,
+      statusCode: 400,
+      error: `Failed to find group of suggested activities ${
+        activitySuggestionGroupId
+          ? "with provided id: " + activitySuggestionGroupId
+          : ""
+      }`,
       data: null,
     };
   }

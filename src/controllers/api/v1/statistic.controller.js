@@ -1,24 +1,14 @@
 import db from "../../../db/index.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
+import { getUTCDateOnly } from "../../../utils/dateHekoer.js";
 import { sendSuccess } from "../../../utils/responses.js";
 
 export const getPerPillarStatistics = asyncHandler(async (req, res) => {
   const now = new Date();
   const day = now.getUTCDay() || 7; // Sunday as 7 for Monday-start weeks
-  const getUTCDate = (offsetDays) =>
-    new Date(
-      Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate() + offsetDays,
-        0,
-        0,
-        0,
-        0
-      )
-    );
-  let start = getUTCDate(-(day - 1)); // Monday
-  let end = getUTCDate(7 - day); // Sunday
+
+  let start = getUTCDateOnly(now, -(day - 1)); // Monday
+  let end = getUTCDateOnly(now, 7 - day); // Sunday
 
   if (req.query?.startDate && req.query?.endDate) {
     start = req.query.startDate;

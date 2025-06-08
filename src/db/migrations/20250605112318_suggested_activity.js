@@ -36,5 +36,10 @@ export async function up(knex) {
 }
 
 export async function down(knex) {
+  // 1. Drop FK constraint
+  await knex.schema.alterTable("user_activity_list", (table) => {
+    table.dropForeign("suggestedActivityId");
+  });
+
   await knex.schema.dropTable("suggested_activity");
 }

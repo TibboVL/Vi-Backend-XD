@@ -11,11 +11,46 @@ import {
   GetActivitySuggestionsWithDetailsCore,
   insertSuggestedActivityItems,
 } from "../controllers/api/v1/suggestedActivity.controller.js";
+import {
+  getAIRequestUsageForToday,
+  insertAIRequestUsageEntry,
+} from "../controllers/api/v1/aiRequestUsage.controller.js";
+import { getUserActiveSubscription } from "../controllers/api/v1/subscription.controller.js";
+import { getUTCDateOnly } from "../utils/dateHekoer.js";
 
 export async function getAISuggestedActivities(request, res, lon, lat) {
   //! TODO add a check to see if user still has reccomendation tokens left in their subscription tier for today
+
+  // 0) Check if user is allowed to request AI suggestions
+  const ussageCountResult = await getAIRequestUsageForToday(request);
+  const userActiveSubscriptionResult = await getUserActiveSubscription(request);
+  if (ussageCountResult.error || userActiveSubscriptionResult.error) {
+    return sendError(res, {
+      statusCode: 400,
+      message: `failed to check user subscription or request ussage! ${ussageCountResult.error?.message} ${userActiveSubscriptionResult.error?.message}`,
+    });
+  }
+
+  console.log(ussageCountResult, userActiveSubscriptionResult);
+
+  if (
+    ussageCountResult.data.count >=
+    userActiveSubscriptionResult.data.maxAIRequestsPerDay
+  ) {
+    const error = `❌ ${request.user.email} attempted to go over AI request budget for today - ${ussageCountResult.data.count} of ${userActiveSubscriptionResult.data.maxAIRequestsPerDay} allowed requests`;
+
+    console.warn(error);
+    return sendError(res, {
+      statusCode: 503,
+      message: error,
+      meta: {
+        resetAt: getUTCDateOnly(new Date(), 1),
+      },
+    });
+  }
+
   console.info(
-    `\nℹ️  Getting personalized suggestions for user: ${request.user.email}`
+    `\nℹ️  Getting personalized suggestions for user: ${request.user.email} - ${ussageCountResult.data.count} of ${userActiveSubscriptionResult.data.maxAIRequestsPerDay} allowed requests`
   );
 
   // 1) get user information
@@ -81,6 +116,17 @@ export async function getAISuggestedActivities(request, res, lon, lat) {
   // 4) push prompt to ai
   let AIResponse = null;
   try {
+    // 4.5) insert entry to keep track of user AI access counts
+    const insertAIRequestUserEntryResult = await insertAIRequestUsageEntry(
+      request
+    );
+    if (insertAIRequestUserEntryResult.error) {
+      return sendError(res, {
+        statusCode: 500,
+        message: insertAIRequestUserEntryResult.error.message, //"Failed to update user request log!!",
+      });
+    }
+
     AIResponse = await handlePostAIApiCall(prompt);
   } catch (error) {
     console.warn(`❌ ERROR Gemini API request failed!: ${error}`);
@@ -89,6 +135,7 @@ export async function getAISuggestedActivities(request, res, lon, lat) {
       message: error.message,
     });
   }
+
   console.info(
     `ℹ️  Gemini responded and used ${AIResponse.usageMetadata.totalTokenCount} tokens!`
   );

@@ -166,7 +166,7 @@ export const addActivityToUserList = asyncHandler(async (req, res) => {
     !req.body?.plannedEnd
   ) {
     return sendError(res, {
-      statusCode: 503,
+      statusCode: 400,
       message: "Request is missing parameters!",
     });
   }
@@ -218,7 +218,6 @@ export const updateActivityToUserList = asyncHandler(async (req, res) => {
     markedCompletedAt,
     checkinId,
   } = req.body;
-  console.log(plannedStart, plannedEnd);
   // check if user activity list entry exists
   const userActivityList = await db("user_activity_list")
     .where("userActivityId", userActivityId)

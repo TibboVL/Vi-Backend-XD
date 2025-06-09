@@ -170,8 +170,8 @@ export async function getAISuggestedActivities(request, res, lon, lat) {
     );
   if (activtySuggestionsWithDetails.error) {
     return sendError(res, {
-      statusCode: 500,
-      message: `❌  Failed to get newly created reccomendations: ${activtySuggestionsWithDetails.error}`,
+      statusCode: activtySuggestionsWithDetails.error.statusCode,
+      message: `❌  Failed to get newly created reccomendations: ${activtySuggestionsWithDetails.error.message}`,
     });
   }
 

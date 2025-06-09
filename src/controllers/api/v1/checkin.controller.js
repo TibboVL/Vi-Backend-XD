@@ -100,6 +100,7 @@ export const lastValidCheckinHelper = async (req) => {
         "c.userActivityId"
       )
       .leftJoin("mood as m", "m.moodId", "c.afterMoodId") // activity linked so after is closer to now
+      .leftJoin("mood as pm", "pm.moodId", "m.parentMoodId") // freestanding so only before is filled in
       .where("c.userId", req.user.userId) // only checkins this user
       .whereNotNull("c.userActivityId") // only non freestanding activities
       .whereNotNull("ual.markedCompletedAt") // that attached to completed activities
@@ -111,6 +112,7 @@ export const lastValidCheckinHelper = async (req) => {
         "c.afterEnergyLevel as energy", // activity linked so after is closer to now
         "m.label as mood",
         "m.parentMoodId",
+        "pm.label as parentMood",
         "ual.plannedEnd as validAtDate",
       ]);
     const latestFreestandingCheckin = await db("checkin as c")
@@ -150,7 +152,7 @@ export const getLastValidCheckin = asyncHandler(async (req, res) => {
   if (checkin.error) {
     return sendError(res, {
       statusCode: 400,
-      message: `Failed to get checkin item - error: ${checkin.error}`,
+      message: `Failed to get checkin item - error: ${checkin.error.message}`,
     });
   }
   if (checkin.data == null) {
@@ -165,3 +167,56 @@ export const getLastValidCheckin = asyncHandler(async (req, res) => {
     data: checkin.data,
   });
 });
+
+export const getCheckinById = async (checkinId) => {
+  try {
+    const checkin = await db("checkin as c")
+      .where("c.checkinId", checkinId)
+      .leftJoin(
+        "user_activity_list as ual",
+        "ual.userActivityId",
+        "c.userActivityId"
+      )
+      .leftJoin("mood as bm", "bm.moodId", "c.beforeMoodId")
+      .leftJoin("mood as am", "am.moodId", "c.afterMoodId")
+      .leftJoin("mood as bpm", "bpm.moodId", "bm.parentMoodId")
+      .leftJoin("mood as apm", "apm.moodId", "am.parentMoodId")
+      .select([
+        "c.checkinId",
+        "c.beforeMoodId",
+        "c.beforeEnergyLevel",
+        "c.afterMoodId",
+        "c.afterEnergyLevel",
+        "am.label as afterMood",
+        "am.parentMoodId as afterParentMoodId",
+        "apm.label as afterParentMood",
+        "bm.label as beforeMood",
+        "bm.parentMoodId as beforeParentMoodId",
+        "bpm.label as beforeParentMood",
+        "c.created_at as createdAt",
+        "ual.plannedEnd as plannedEnd",
+      ])
+      .first();
+    if (!checkin) {
+      return {
+        error: {
+          statusCode: 404,
+          message: `Failed to get find checkin with id: ${checkinId}`,
+        },
+        data: null,
+      };
+    }
+    return {
+      error: null,
+      data: checkin,
+    };
+  } catch (error) {
+    return {
+      error: {
+        statusCode: 500,
+        message: `Failed to get checkin by id, error: ${error}`,
+      },
+      data: null,
+    };
+  }
+};

@@ -4,6 +4,9 @@ import { getDistanceFromLatLonInKm } from "../../../utils/distanceHelper.js";
 import { sendError, sendSuccess } from "../../../utils/responses.js";
 // @ts-ignore
 import { getActivitiesCore } from "./activity.controller.js";
+import { getAIRequestUsageForToday } from "./aiRequestUsage.controller.js";
+import { getCheckinById, getLastValidCheckin } from "./checkin.controller.js";
+import { getUserActiveSubscription } from "./subscription.controller.js";
 
 export const insertSuggestedActivityItems = async (
   req,
@@ -58,8 +61,8 @@ export const GetActivitySuggestionsWithDetails = asyncHandler(
       );
       if (results.error) {
         return sendError(res, {
-          statusCode: results.statusCode,
-          message: results.error,
+          statusCode: results.error.statusCode,
+          message: results.error.message,
         });
       }
 
@@ -82,7 +85,10 @@ export const GetActivitySuggestionsWithDetailsCore = async (
   activitySuggestionGroupId
 ) => {
   if (!req.query.lon || !req.query.lat) {
-    return { statusCode: 503, error: "long,lat missing", data: null };
+    return {
+      error: { statusCode: 503, message: "long,lat missing" },
+      data: null,
+    };
   }
   // start from the sug act group and only get ones this user is allowed to see
   let query = db("suggested_activity_group as sag").where(
@@ -103,12 +109,14 @@ export const GetActivitySuggestionsWithDetailsCore = async (
 
   if (!suggestedActivityGroup) {
     return {
-      statusCode: 400,
-      error: `Failed to find group of suggested activities ${
-        activitySuggestionGroupId
-          ? "with provided id: " + activitySuggestionGroupId
-          : ""
-      }`,
+      error: {
+        statusCode: 400,
+        message: `Failed to find group of suggested activities ${
+          activitySuggestionGroupId
+            ? "with provided id: " + activitySuggestionGroupId
+            : ""
+        }`,
+      },
       data: null,
     };
   }
@@ -174,9 +182,40 @@ export const GetActivitySuggestionsWithDetailsCore = async (
     }
   }
 
+  const basedOnCheckin = await getCheckinById(
+    suggestedActivityGroup.basedOnCheckinId
+  );
+  if (basedOnCheckin.error) {
+    return {
+      error: {
+        statusCode: 500,
+        message: `Failed to find based on checkin!, error: ${basedOnCheckin.error.message}`,
+      },
+      data: null,
+    };
+  }
+
+  const subscription = await getUserActiveSubscription(req);
+  const usage = await getAIRequestUsageForToday(req);
+  if (subscription.error || usage.error) {
+    return {
+      error: {
+        statusCode: 500,
+        message: `Failed to get users subscription or quota! error: ${subscription.error.message} ${usage.error.message}`,
+      },
+      data: null,
+    };
+  }
+  console.log(basedOnCheckin, subscription, usage);
   return {
-    statusCode: null,
     error: null,
-    data: activitySuggestionListWithActivities,
+    data: {
+      basedOnCheckin: basedOnCheckin.data,
+      subscriptionStatus: {
+        usage: parseInt(usage.data.count),
+        subscription: subscription.data,
+      },
+      activitySuggestionList: activitySuggestionListWithActivities,
+    },
   };
 };

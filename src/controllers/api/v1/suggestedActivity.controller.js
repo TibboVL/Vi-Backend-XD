@@ -129,8 +129,34 @@ export const GetActivitySuggestionsWithDetailsCore = async (
     )
     .select("*");
 
+  const basedOnCheckin = await getCheckinById(
+    suggestedActivityGroup.basedOnCheckinId
+  );
+  if (basedOnCheckin.error) {
+    return {
+      error: {
+        statusCode: 500,
+        message: `Failed to find based on checkin!, error: ${basedOnCheckin.error.message}`,
+      },
+      data: null,
+    };
+  }
+
+  const subscription = await getUserActiveSubscription(req);
+  const usage = await getAIRequestUsageForToday(req);
+  if (subscription.error || usage.error) {
+    return {
+      error: {
+        statusCode: 500,
+        message: `Failed to get users subscription or quota! error: ${subscription.error.message} ${usage.error.message}`,
+      },
+      data: null,
+    };
+  }
+
   // get acivities
   const activitySuggestionListWithActivities = [];
+  let count = 1;
   for (const activitySuggestion of activitySuggestionList) {
     const activity = await db("activity as a")
       .where("a.activityId", activitySuggestion.activityId)
@@ -162,6 +188,7 @@ export const GetActivitySuggestionsWithDetailsCore = async (
     if (activity) {
       activitySuggestionListWithActivities.push({
         ...activitySuggestion,
+        isPremiumLocked: count > subscription.data.maxAIResultsShown,
         activity: {
           ...activity,
           // @ts-ignore
@@ -180,33 +207,9 @@ export const GetActivitySuggestionsWithDetailsCore = async (
         },
       });
     }
+    count = count + 1;
   }
 
-  const basedOnCheckin = await getCheckinById(
-    suggestedActivityGroup.basedOnCheckinId
-  );
-  if (basedOnCheckin.error) {
-    return {
-      error: {
-        statusCode: 500,
-        message: `Failed to find based on checkin!, error: ${basedOnCheckin.error.message}`,
-      },
-      data: null,
-    };
-  }
-
-  const subscription = await getUserActiveSubscription(req);
-  const usage = await getAIRequestUsageForToday(req);
-  if (subscription.error || usage.error) {
-    return {
-      error: {
-        statusCode: 500,
-        message: `Failed to get users subscription or quota! error: ${subscription.error.message} ${usage.error.message}`,
-      },
-      data: null,
-    };
-  }
-  console.log(basedOnCheckin, subscription, usage);
   return {
     error: null,
     data: {

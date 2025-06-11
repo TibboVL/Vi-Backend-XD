@@ -153,15 +153,27 @@ export const getPerActivityStats = asyncHandler(async (req, res) => {
               perCheckinDeltas.length,
             deltaEnjoyment:
               perCheckinDeltas.reduce((sum, d) => sum + d.deltaEnjoyment, 0) /
-              perCheckinDeltas.length,
+              perCheckinDeltas.length, // these are -2 to 2 units
             deltaEnergy:
               perCheckinDeltas.reduce((sum, d) => sum + d.deltaEnergy, 0) /
-              perCheckinDeltas.length,
+              perCheckinDeltas.length, // this is a -100 - 100 unit
+            normalizedDeltaEnergy:
+              perCheckinDeltas.reduce((sum, d) => sum + d.deltaEnergy, 0) /
+              perCheckinDeltas.length /
+              50, // this brings it back to a -2 to 2 range
+            combinedDeltaMood:
+              (perCheckinDeltas.reduce((sum, d) => sum + d.deltaEnjoyment, 0) /
+                perCheckinDeltas.length) *
+                0.6 +
+              (perCheckinDeltas.reduce((sum, d) => sum + d.deltaAlertness, 0) /
+                perCheckinDeltas.length) *
+                0.4,
           }
         : {
             deltaAlertness: 0,
             deltaEnjoyment: 0,
             deltaEnergy: 0,
+            normalizedDeltaEnergy: 0,
           };
 
     return {
@@ -173,6 +185,7 @@ export const getPerActivityStats = asyncHandler(async (req, res) => {
       categories: entry.categories,
       // @ts-ignore
       averageDeltas: averageDeltas,
+      basedOnCheckinAmount: perCheckinDeltas.length,
       /*  checkins: [
         // @ts-ignore
         entry.checkins.map((checkin) => {

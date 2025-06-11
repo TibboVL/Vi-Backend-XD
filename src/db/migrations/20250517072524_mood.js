@@ -4,6 +4,9 @@ export async function up(knex) {
     table.integer("parentMoodId").unsigned().nullable();
     table.string("label").unique().notNullable();
 
+    table.float("alertness").nullable();
+    table.float("enjoyment").nullable();
+
     table
       .foreign("parentMoodId")
       .references("moodId")

@@ -76,3 +76,127 @@ export const getPerPillarStatistics = asyncHandler(async (req, res) => {
     },
   });
 });
+
+export const getPerActivityStats = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const day = now.getUTCDay() || 7; // Sunday as 7 for Monday-start weeks
+
+  let start = getUTCDateOnly(now, -(day - 1)); // Monday
+  let end = getUTCDateOnly(now, 7 - day); // Sunday
+
+  if (req.query?.startDate && req.query?.endDate) {
+    start = req.query.startDate;
+    end = req.query.endDate;
+  }
+  console.log(start, end);
+
+  // 1) get all of the valid reviewed activities within the asked for range
+  const amountOfEntries = await db("user_activity_list as ual")
+    .leftJoin("checkin as c", "ual.checkinId", "c.checkinId")
+    .whereNotNull("c.checkinId") // only reviewed and thus completed plans
+    .where("ual.userId", req.user.userId) // only from this user
+    .whereBetween("ual.plannedStart", [start, end]) // within the given time range
+    .leftJoin("activity as a", "ual.activityId", "a.activityId")
+    .leftJoin("mood as mb", "c.beforeMoodId", "mb.moodId")
+    .leftJoin("mood as ma", "c.afterMoodId", "ma.moodId")
+    .select([
+      "a.activityId",
+      "a.name as activityTitle",
+      db.raw(`json_agg(
+        json_build_object(
+        'checkin', c.*,
+        'moodBefore', mb.*,
+        'moodAfter', ma.*
+        )
+        ) as checkins`), // Group checkins
+      // Categories Subquery
+      db.raw(`
+      (
+        SELECT json_agg(
+          json_build_object(
+            'activityCategoryId', ac."activityCategoryId",
+            'name', ac."name",
+            'pillar', ap."name"
+          )
+        )
+        FROM activity_activity_category aac
+        LEFT JOIN activity_category ac ON aac."activityCategoryId" = ac."activityCategoryId"
+        LEFT JOIN activity_pillar ap ON ac."activityPillarId" = ap."pillarId"
+        WHERE aac."activityId" = a."activityId"
+      ) as categories
+    `),
+    ])
+    .groupBy("a.activityId");
+
+  // 2) merge
+  const calculatedEntries = amountOfEntries.map((entry) => {
+    // @ts-ignore
+    const perCheckinDeltas = entry.checkins.map((checkin) => {
+      const deltaAlertness =
+        checkin.moodAfter.alertness - checkin.moodBefore.alertness;
+      const deltaEnjoyment =
+        checkin.moodAfter.enjoyment - checkin.moodBefore.enjoyment;
+      const deltaEnergy =
+        checkin.checkin.afterEnergyLevel - checkin.checkin.beforeEnergyLevel;
+      return {
+        deltaAlertness,
+        deltaEnjoyment,
+        deltaEnergy,
+      };
+    });
+
+    const averageDeltas =
+      perCheckinDeltas.length > 0
+        ? {
+            deltaAlertness:
+              perCheckinDeltas.reduce((sum, d) => sum + d.deltaAlertness, 0) /
+              perCheckinDeltas.length,
+            deltaEnjoyment:
+              perCheckinDeltas.reduce((sum, d) => sum + d.deltaEnjoyment, 0) /
+              perCheckinDeltas.length,
+            deltaEnergy:
+              perCheckinDeltas.reduce((sum, d) => sum + d.deltaEnergy, 0) /
+              perCheckinDeltas.length,
+          }
+        : {
+            deltaAlertness: 0,
+            deltaEnjoyment: 0,
+            deltaEnergy: 0,
+          };
+
+    return {
+      // @ts-ignore
+      activityId: entry.activityId,
+      // @ts-ignore
+      activityTitle: entry.activityTitle,
+      // @ts-ignore
+      categories: entry.categories,
+      // @ts-ignore
+      averageDeltas: averageDeltas,
+      /*  checkins: [
+        // @ts-ignore
+        entry.checkins.map((checkin) => {
+          const deltaAlertness =
+            checkin.moodAfter.alertness - checkin.moodBefore.alertness;
+          const deltaEnjoyment =
+            checkin.moodAfter.enjoyment - checkin.moodBefore.enjoyment;
+          const deltaEnergy =
+            checkin.checkin.afterEnergyLevel -
+            checkin.checkin.beforeEnergyLevel;
+
+          return {
+            deltaAlertness,
+            deltaEnjoyment,
+            deltaEnergy,
+          };
+        }),
+      ], */
+    };
+  });
+
+  return sendSuccess(res, {
+    statusCode: 200,
+    message: "Successfully gathered per activity statistics",
+    data: calculatedEntries,
+  });
+});

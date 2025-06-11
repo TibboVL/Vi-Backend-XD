@@ -124,6 +124,7 @@ export const getUserActivityListItemsToBeReviewed = asyncHandler(
         )
         .leftJoin("activity_pillar as ap", "ac.activityPillarId", "ap.pillarId")
         .groupBy("ual.userActivityId", "a.activityId")
+        .orderBy("ual.plannedStart") // order by the planned date first
         .select([
           "ual.userActivityId",
           "ual.userId",

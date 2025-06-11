@@ -89,28 +89,48 @@ export async function getAISuggestedActivities(request, res, lon, lat) {
     })
   ).data;
   shuffle(activities);
+  //console.log(activities.map((a) => a.activityId));
 
-  const maxItemsOfSamePillar = 5;
+  const maxItemsOfSamePillar = 8;
   const limitByPillar = [];
+  const pillarCounts = {}; // counts per pillar
+
   for (const activity of activities) {
-    if (
-      limitByPillar.filter(
-        (a) => a.categories[0].pillar == activity.categories[0].pillar
-      ).length < maxItemsOfSamePillar
-    ) {
-      limitByPillar.push(activity);
+    const pillars = Array.from(
+      new Set(activity.categories?.map((c) => c.pillar))
+    );
+
+    // Find pillar with the lowest count
+    let minCount = Infinity;
+    let minPillar = null;
+    for (const pillar of pillars) {
+      const count = pillarCounts[pillar] ?? 0;
+      if (count < minCount) {
+        minCount = count;
+        minPillar = pillar;
+      }
     }
-  } // we should get at most maxItemsOfSamePillar * 4 activities now
+
+    if (minCount >= maxItemsOfSamePillar) {
+      // All relevant pillars hit the limit
+      continue;
+    }
+
+    limitByPillar.push(activity);
+    pillarCounts[minPillar] = (pillarCounts[minPillar] ?? 0) + 1;
+  }
+
   console.info(
     `ℹ️  Passing ${limitByPillar.length} activities out of ${activities.length} valid options to ai`
   );
+
   const promptInfo = {
     ...userInfo,
     activities: limitByPillar,
   };
   // 3) construct prompt
   const prompt = await constructReccomendationPrompt(promptInfo);
-  console.log(prompt);
+  //console.log(prompt);
   console.log(`ℹ️  prompt is ${prompt.length} characters`);
 
   // 4) push prompt to ai
@@ -242,7 +262,7 @@ async function gatherInformationForPrompt(request, lon, lat) {
     data: {
       checkin: lastValidCheckin,
       weather: weatherForLLM,
-      noveltyPreference: true,
+      //noveltyPreference: true,
     },
   };
 }
@@ -258,7 +278,6 @@ User Profile:
 - Time of Day: ${promptInfo.weather.current_time}
 - Current Weather: ${promptInfo.weather.current_weather_summary}
 - Forecast (Next 24-48h): ${promptInfo.weather.forecast_summary}
-- Willingness for Novelty: ${promptInfo.noveltyPreference ? "true" : "false"}
 
 User statistics regarding previous activities: Work in progress / currently unavailable
 
@@ -268,6 +287,8 @@ ${promptInfo.activities
     (activity) => `
 ${activity.name}
 Id: ${activity.activityId}
+Description truncated: ${activity.description?.trim(200)}
+Source: ${activity.source}
 Req energy: ${activity.energyRequired}
 Est Duration: ${activity.estimatedDurationMinutes}m
 Est Cost: ${
@@ -284,7 +305,8 @@ Categories: ${
     }
 `
   )
-  .join("\n")}
+  .join("\n")
+  .trim(10000)}
 
 Recommendation Task:
 Based on the user's profile and the available activities, recommend 5 activities that are most suitable right now or in the next 48 hours.
@@ -292,7 +314,7 @@ For each recommendation, briefly explain *why* it's a good fit for the user, ref
 Prioritize activities that align with their current energy and likely lead to a positive experience. Also, consider suggesting one "novel" activity if appropriate.
 
 Our activity data comes from external sources and may not always have correctly labeled, "Is Group Activity" and "Energy Required" fields.
-If you suspect these are incorrect please also provide your estimated value for these fields.`;
+If you suspect these are incorrect please also provide your estimated value for these fields. Also try to use at least 2 items from the UITApi sourc.`;
 
 const handlePostAIApiCall = async (prompt) => {
   const response = await ai.models.generateContent({

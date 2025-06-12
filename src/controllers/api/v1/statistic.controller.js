@@ -174,6 +174,7 @@ export const getPerActivityStats = asyncHandler(async (req, res) => {
             deltaEnjoyment: 0,
             deltaEnergy: 0,
             normalizedDeltaEnergy: 0,
+            combinedDeltaMood: 0,
           };
 
     return {

@@ -110,7 +110,7 @@ export const GetActivitySuggestionsWithDetailsCore = async (
   if (!suggestedActivityGroup) {
     return {
       error: {
-        statusCode: 400,
+        statusCode: 404,
         message: `Failed to find group of suggested activities ${
           activitySuggestionGroupId
             ? "with provided id: " + activitySuggestionGroupId

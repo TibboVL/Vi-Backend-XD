@@ -4,6 +4,7 @@ import db from "../db/index.js";
 import { DateTime } from "luxon";
 import { mapActivityToPillarCategories } from "./mapToCategoryHelper.js";
 import { stripAll } from "../utils/textUtils.js";
+import cliProgress from "cli-progress";
 
 // const UitSearchAPIURI = "https://search-test.uitdatabank.be";
 const UitSearchAPIURI = "https://search-test.uitdatabank.be";
@@ -11,6 +12,7 @@ const UitSearchAPIURI = "https://search-test.uitdatabank.be";
 /**
  * @typedef {Object} Filters
  * @property {string} [postalCode]
+ * @property {number} [limit]
  *  */
 
 /**
@@ -23,11 +25,10 @@ const UitSearchAPIURI = "https://search-test.uitdatabank.be";
  */
 export const getUitEventDecodedList = async (filters) => {
   const { postalCode } = filters;
-  console.log(filters);
-  console.log(postalCode);
+  const limit = filters.limit ?? 100;
+  console.log(`ℹ️  Getting UITVlaanderen API entries, Limit: ${limit}`);
   dotenv.config();
-
-  console.log("Client ID:", process.env.UIT_CLIENT_ID);
+  //console.log("Client ID:", process.env.UIT_CLIENT_ID);
 
   const now = DateTime.now()
     .setZone("Europe/Brussels")
@@ -46,7 +47,7 @@ export const getUitEventDecodedList = async (filters) => {
     `${dateRangeQuery}`
   );
 
-  console.log(dateRangeQuery);
+  //console.log(dateRangeQuery);
 
   // return;
   try {
@@ -57,7 +58,7 @@ export const getUitEventDecodedList = async (filters) => {
         "&bookingAvailability=Available" +
         "&languages[]=nl" +
         "&status=Available" +
-        "&limit=100" +
+        `&limit=${limit}` +
         "&regions=nis-10000" +
         //"&q=address.nl.addressLocality:Antwerpen" + // can filter on province or postalcode
         (postalCode ? "&postalCode=" + postalCode : ""),
@@ -73,30 +74,7 @@ export const getUitEventDecodedList = async (filters) => {
 
     console.log(`Found: ${encodedEvents.totalItems} items`);
 
-    //console.log(encodedEvents);
     const decodedEvents = await handleEventListDecode(encodedEvents.member);
-
-    /* console.log(
-      decodedEvents.map((event) => {
-        return {
-          start: event.startDate,
-          end: event.endDate,
-          availableFrom: event.availableFrom,
-          availableTo: event.availableTo,
-          subEvs: JSON.stringify(
-            event.subEvent?.map((e) => ({
-              subEventStart: event.subEvent[0].startDate,
-              subEventEnd: event.subEvent[0].endDate,
-            }))
-          ),
-          oepningHours: JSON.stringify(event.location.openingHours),
-          status: event.status.type,
-          calendarType: event.calendarType,
-        };
-      })
-    ); */
-    //console.log(decodedEvents);
-
     await handleInsertToDB(decodedEvents);
 
     return decodedEvents;
@@ -109,7 +87,6 @@ export const getUitEventDecodedList = async (filters) => {
 
 const handleInsertToDB = async (decodedEvents) => {
   const pillars = await db("activity_pillar").select("*");
-  //console.log(pillars);
 
   for (const event of decodedEvents) {
     try {
@@ -118,11 +95,11 @@ const handleInsertToDB = async (decodedEvents) => {
 
       if (!Array.isArray(categories) || categories.length === 0) {
         console.warn(`Activity: "${transformedEvent.name}" has no categories`);
-        console.log(
-          JSON.parse(transformedEvent.tags).filter((tag) =>
-            ["eventtype", "theme"].includes(tag.domain)
-          )
-        );
+        // console.log(
+        //   JSON.parse(transformedEvent.tags).filter((tag) =>
+        //     ["eventtype", "theme"].includes(tag.domain)
+        //   )
+        // );
         continue;
       }
 
@@ -132,9 +109,7 @@ const handleInsertToDB = async (decodedEvents) => {
         const pillar = pillars.find(
           (pillar) => pillar.name.toLowerCase() == cat.pillar.toLowerCase()
         );
-        // console.log(cat);
-        // console.log(pillar);
-        // console.log("pillar?.pillarId ", pillar?.pillarId);
+
         // Check if category exists
         let categoryId = await db("activity_category")
           .where("name", cat.category)
@@ -145,11 +120,6 @@ const handleInsertToDB = async (decodedEvents) => {
             return res?.activityCategoryId;
           });
 
-        /* console.log(
-          `Does it exist? category id: ${categoryId} - pillar: ${
-            pillar?.pillarId
-          } - cat: ${JSON.stringify(cat)} - cats ${JSON.stringify(categories)}`
-        ); */
         // Insert if not exists
         if (categoryId == null) {
           const [newCategory] = await db("activity_category")
@@ -210,9 +180,20 @@ const handleInsertToDB = async (decodedEvents) => {
 const handleEventListDecode = async (eventList) => {
   /** @type {import('../types/types.js').Event[]} */
   const decodedEventsList = [];
+
+  // Setup CLI progress bar
+  const bar = new cliProgress.SingleBar({
+    format: "Decoding Events [{bar}] {percentage}% | {value}/{total} events",
+    barCompleteChar: "\u2588",
+    barIncompleteChar: "\u2591",
+    hideCursor: true,
+  });
+
+  bar.start(eventList.length, 0);
+
   for (const event of eventList) {
     // console.log(event);
-    console.log(event["@id"]);
+    // console.log(event["@id"]);
     const response = await fetch(event["@id"], {
       method: "GET",
       headers: {
@@ -220,9 +201,8 @@ const handleEventListDecode = async (eventList) => {
       },
     });
     const decodedEvent = await response.json();
-    //console.log(decodedEvent);
-    // const decodedEvent = await decoedEvent.json();
     decodedEventsList.push(decodedEvent);
+    bar.increment();
   }
   return decodedEventsList;
 };

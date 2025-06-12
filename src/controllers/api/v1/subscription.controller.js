@@ -42,9 +42,7 @@ export const createSubscriptionCore = async (
         endDate: end,
         autoRenew: autoRenew,
       })
-      .returning("*")
-      .first();
-
+      .returning("*");
     return {
       error: null,
       data: result,
@@ -90,6 +88,38 @@ export const modifySubscription = asyncHandler(async (req, res) => {
     });
   }
 });
+
+export const getActiveSubscription = asyncHandler(async (req, res) => {
+  const result = await getUserActiveSubscription(req);
+  if (result.error) {
+    return sendError(res, {
+      statusCode: result.error.statusCode,
+      message: result.error.message,
+    });
+  } else {
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: "successfully found subscription",
+      data: result.data,
+    });
+  }
+});
+export const getAvalablePlans = asyncHandler(async (req, res) => {
+  try {
+    const result = await db("plan").where("isActive", true);
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: "successfully found avalable plans",
+      data: result,
+    });
+  } catch (error) {
+    return sendError(res, {
+      statusCode: 500,
+      message: error,
+    });
+  }
+});
+
 export const getUserActiveSubscription = async (req) => {
   const now = new Date();
 
@@ -119,7 +149,7 @@ export const getUserActiveSubscription = async (req) => {
         return {
           error: {
             statusCode: 500,
-            message: `❌ No active subscription found, automatically creating free subscription for user. Failed to add a free subscription to user!, ${newSubscription.error}`,
+            message: `❌ No active subscription found, automatically creating free subscription for user. Failed to add a free subscription to user!, ${newSubscription.error.message}`,
           },
           data: null,
         };

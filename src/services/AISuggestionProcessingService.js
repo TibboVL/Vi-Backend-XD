@@ -91,7 +91,7 @@ export async function getAISuggestedActivities(request, res, lon, lat) {
   shuffle(activities);
   //console.log(activities.map((a) => a.activityId));
 
-  const maxItemsOfSamePillar = 8;
+  const maxItemsOfSamePillar = 10;
   const limitByPillar = [];
   const pillarCounts = {}; // counts per pillar
 
@@ -317,8 +317,10 @@ Our activity data comes from external sources and may not always have correctly 
 If you suspect these are incorrect please also provide your estimated value for these fields. Also try to use at least 2 items from the UITApi sourc.`;
 
 const handlePostAIApiCall = async (prompt) => {
+  //console.log(await ai.models.list());
+  //return;
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.0-flash-thinking-exp-1219", // "gemini-2.0-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",

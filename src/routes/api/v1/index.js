@@ -7,6 +7,7 @@ import adminRoutes from "./admin.routes.js";
 import activitySuggestionRoutes from "./activitySuggestion.routes.js";
 import statisticRoutes from "./statistic.routes.js";
 import subscriptionRoutes from "./subscription.routes.js";
+import goalRoutes from "./goal.routes.js";
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use("/useractivitylist", userActivityListRoutes);
 router.use("/activitySuggestions", activitySuggestionRoutes);
 router.use("/statistics", statisticRoutes);
 router.use("/subscription", subscriptionRoutes);
+router.use("/goals", goalRoutes);
 
 export default router;

@@ -3,7 +3,7 @@ import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { getUTCDateOnly } from "../../../utils/dateHekoer.js";
 import { sendSuccess } from "../../../utils/responses.js";
 
-export const getPerPillarStatistics = asyncHandler(async (req, res) => {
+export const getPillarsOvertimeStatistics = asyncHandler(async (req, res) => {
   const now = new Date();
   const day = now.getUTCDay() || 7; // Sunday as 7 for Monday-start weeks
 
@@ -73,6 +73,79 @@ export const getPerPillarStatistics = asyncHandler(async (req, res) => {
       end: end,
       pillarStats: pillarTotalMins,
       statistics: statistics,
+    },
+  });
+});
+export const getEnergyOvertimeStatistics = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const day = now.getUTCDay() || 7; // Sunday as 7 for Monday-start weeks
+
+  let start = getUTCDateOnly(now, -(day - 1)); // Monday
+  let end = getUTCDateOnly(now, 7 - day); // Sunday
+
+  if (req.query?.startDate && req.query?.endDate) {
+    start = req.query.startDate;
+    end = req.query.endDate;
+  }
+  console.log(start, end);
+
+  //return;
+  const statistics = await db("checkin as c")
+    .where("c.userId", req.user.userId)
+    .leftJoin("user_activity_list as ual", "ual.checkinId", "c.checkinId")
+    .whereBetween("ual.plannedStart", [start, end])
+    .orWhereNull("ual.plannedStart")
+    .distinctOn("ual.userActivityId")
+    .select(
+      "ual.plannedStart",
+      "ual.plannedEnd",
+      "c.beforeEnergyLevel",
+      "c.afterEnergyLevel",
+      "c.created_at",
+      db.raw(`
+      CASE 
+        WHEN ual."plannedStart" IS NOT NULL 
+        THEN DATE(ual."plannedStart") 
+        ELSE DATE(c."created_at") 
+      END AS date
+    `)
+    );
+
+  const statisticsArray = [];
+  for (let stat of statistics) {
+    statisticsArray.push({
+      energy: stat.beforeEnergyLevel,
+      date: stat.plannedEnd ?? stat.created_at,
+    });
+    if (!stat.afterEnergyLevel) continue; // skip the second half of freestanding entries that only have a before
+    statisticsArray.push({
+      energy: stat.afterEnergyLevel,
+      date: stat.plannedEnd ?? stat.created_at,
+    });
+  }
+  statisticsArray.sort((a, b) => a.date - b.date);
+
+  /*   statistics.map((item) => (
+    {
+      energy: item.beforeEnergyLevel,
+      date: item.plannedEnd ?? item.created_at,
+    },
+    {
+      energy: item.afterEnergyLevel,
+      date: item.plannedEnd ?? item.created_at,
+    },
+  )); */
+
+  sendSuccess(res, {
+    statusCode: 200,
+    message: `Energy statistics for period: ${start} to ${end} retrieved`,
+    meta: {
+      itemCount: statisticsArray.length,
+    },
+    data: {
+      start: start,
+      end: end,
+      statistics: statisticsArray,
     },
   });
 });
@@ -187,24 +260,6 @@ export const getPerActivityStats = asyncHandler(async (req, res) => {
       // @ts-ignore
       averageDeltas: averageDeltas,
       basedOnCheckinAmount: perCheckinDeltas.length,
-      /*  checkins: [
-        // @ts-ignore
-        entry.checkins.map((checkin) => {
-          const deltaAlertness =
-            checkin.moodAfter.alertness - checkin.moodBefore.alertness;
-          const deltaEnjoyment =
-            checkin.moodAfter.enjoyment - checkin.moodBefore.enjoyment;
-          const deltaEnergy =
-            checkin.checkin.afterEnergyLevel -
-            checkin.checkin.beforeEnergyLevel;
-
-          return {
-            deltaAlertness,
-            deltaEnjoyment,
-            deltaEnergy,
-          };
-        }),
-      ], */
     };
   });
 

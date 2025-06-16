@@ -10,6 +10,7 @@ export const addCheckin = asyncHandler(async (req, res) => {
     beforeEnergy,
     afterEnergy,
     userActivityId,
+    comments,
   } = req.body;
 
   if (!beforeMoodId || !beforeEnergy) {
@@ -71,9 +72,21 @@ export const addCheckin = asyncHandler(async (req, res) => {
           checkinId: checkin.checkinId,
         })
         .returning("*");
+
+      if (comments) {
+        const [commentResults] = await db("comment").insert(
+          comments.map((comment) => ({
+            type: comment.type,
+            comment: comment.comment,
+            checkinId: checkin.checkinId,
+          })),
+          ["*"]
+        );
+      }
+
       return sendSuccess(res, {
         statusCode: 201,
-        message: `Successfully created checkin entry and updated user activity list entry`,
+        message: `Successfully created checkin entry with comments and updated user activity list entry`,
         data: checkin,
       });
     } else {
